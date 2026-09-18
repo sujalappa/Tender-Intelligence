@@ -79,4 +79,12 @@ export const api = {
     return send(`/api/tenders/${id}/chat-history${q ? `?${q}` : ""}`);
   },
   clearChatHistory: (id) => send(`/api/tenders/${id}/chat-history`, { method: "DELETE" }),
+
+  // --- source file recovery (admin) ---
+  fileStatus: (id) => send(`/api/tenders/${id}/files/status`),
+  restoreFile: (id, index, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return fetch(`${API_BASE}/api/tenders/${id}/files/${index}/restore`, { method: "POST", body: form, credentials: "include" }).then(json);
+  },
 };

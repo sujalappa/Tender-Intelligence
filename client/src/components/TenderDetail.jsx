@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api, API_BASE } from "../api.js";
 import { StatusPill } from "./TenderList.jsx";
@@ -51,6 +51,14 @@ export default function TenderDetail() {
   const [notesKey, setNotesKey] = useState(0);
   const [teamUsers, setTeamUsers] = useState([]);
   useEffect(() => { if (isAdmin) api.users().then(setTeamUsers).catch(() => {}); }, [isAdmin]);
+
+  // File availability is a cheap fs.access() per file server-side, so it's
+  // fine to check on every visit rather than only when something looks
+  // broken — an ephemeral host (no persistent disk attached) can lose a
+  // file on any redeploy with nothing in the UI otherwise telling you.
+  const [fileStatus, setFileStatus] = useState(null);
+  const loadFileStatus = () => api.fileStatus(id).then(setFileStatus).catch(() => {});
+  useEffect(() => { loadFileStatus(); }, [id]);
 
   const refreshOverview = async () => {
     setOverviewBusy(true);
@@ -194,14 +202,24 @@ export default function TenderDetail() {
         <div>
           <h2>{tender.title}</h2>
           <ul className="file-list">
-            {(tender.files || []).map((f) => (
-              <li key={f.name} className="mono small">
-                📄 {f.name} {f.pageCount ? `(${f.pageCount}p)` : ""}
-                {f.kind === "linked" && (
-                  <span className="badge linked" title={`Auto-fetched from a link on ${f.fetchedFrom?.file} p.${f.fetchedFrom?.page}\n${f.sourceUrl}`}>linked</span>
-                )}
-              </li>
-            ))}
+            {(tender.files || []).map((f, i) => {
+              const st = fileStatus?.[i];
+              const missing = st && !st.available;
+              return (
+                <li key={i} className="mono small">
+                  📄 {f.name} {f.pageCount ? `(${f.pageCount}p)` : ""}
+                  {f.kind === "linked" && (
+                    <span className="badge linked" title={`Auto-fetched from a link on ${f.fetchedFrom?.file} p.${f.fetchedFrom?.page}\n${f.sourceUrl}`}>linked</span>
+                  )}
+                  {missing && (
+                    <span className="badge missing-file" title="The PDF itself is gone from storage — extracted text/clauses are unaffected, but the citation-proof page view and any future re-extraction of this file won't work until it's restored.">
+                      ⚠ file missing
+                    </span>
+                  )}
+                  {missing && isAdmin && <RestoreFileControl tenderId={id} index={i} onRestored={loadFileStatus} />}
+                </li>
+              );
+            })}
           </ul>
           <p className="muted small">
             {tender.pageCount} pages total · ≈{tender.estTokens?.toLocaleString()} tokens · <span className="mono">{tender.provider}/{tender.model}</span>
@@ -501,6 +519,45 @@ export default function TenderDetail() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Inline "pick a file to restore this source PDF" control for a super admin,
+ * shown next to a file the server reports as missing from disk (e.g. an
+ * ephemeral host wiped it on redeploy before a persistent disk was
+ * attached). The server independently verifies the re-upload is the same
+ * document by page count before accepting it — this is just the picker.
+ */
+function RestoreFileControl({ tenderId, index, onRestored }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = useRef(null);
+
+  const pick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // let picking the same filename again re-fire onChange
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.restoreFile(tenderId, index, file);
+      onRestored?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <span className="restore-file">
+      <input ref={inputRef} type="file" accept="application/pdf" hidden onChange={pick} />
+      <button className="link small" disabled={busy} onClick={() => inputRef.current?.click()}>
+        {busy ? "checking…" : "restore this file"}
+      </button>
+      {error && <span className="error small" title={error}>⚠ {error}</span>}
+    </span>
   );
 }
 

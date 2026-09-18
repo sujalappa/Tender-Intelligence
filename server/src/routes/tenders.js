@@ -9,6 +9,7 @@ import { answerChat } from "../services/chat.js";
 import { generateExecutiveSummary } from "../services/execSummary.js";
 import { AskedQuestion } from "../models/AskedQuestion.js";
 import { CATEGORY_DEFS } from "../services/prompts.js";
+import { extractPages } from "../services/pdf.js";
 import { listOpenrouterModels } from "../services/llm/openrouter.js";
 import { config } from "../config.js";
 import { UsageEvent } from "../models/UsageEvent.js";
@@ -193,6 +194,73 @@ router.get("/:id/pages/:page", requireAuth, async (req, res, next) => {
     const found = gi >= 0 ? tender.pages[gi] : null;
     res.json({ ...(found || { page, file, text: "" }), fileIndex });
   } catch (e) {
+    next(e);
+  }
+});
+
+/** Which of this tender's source files still have their PDF on disk. Cheap
+ *  — a handful of fs.access() calls — so it's fine to call on every visit to
+ *  a tender rather than only when something looks broken. The text/clauses
+ *  extracted from a file are safe in MongoDB regardless of this; only the
+ *  "open the real PDF page" proof view and future re-extraction of THAT
+ *  file need the actual bytes back on disk. */
+router.get("/:id/files/status", requireAuth, async (req, res, next) => {
+  try {
+    const tender = await Tender.findById(req.params.id, { files: 1 }).lean();
+    if (!tender) return res.status(404).json({ error: "Not found" });
+    const status = await Promise.all(
+      (tender.files || []).map(async (f, index) => {
+        const available = f.filePath
+          ? await fs.access(path.resolve(f.filePath)).then(() => true).catch(() => false)
+          : false;
+        return { index, name: f.name, kind: f.kind, pageCount: f.pageCount, available };
+      })
+    );
+    res.json(status);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Replace a missing source file (e.g. lost to an ephemeral filesystem
+ *  before a persistent disk was attached) by re-uploading the same PDF.
+ *  Never re-runs extraction and never touches Clause/Tender.pages — those
+ *  already hold what was extracted, safe in MongoDB. This only restores the
+ *  bytes needed for the citation-proof PDF viewer (and for a future
+ *  re-extraction of this one file, should that ever be needed).
+ *
+ *  Guarded by a page-count match against what was recorded at parse time:
+ *  a re-upload of the WRONG file would make every citation into this file
+ *  point at the wrong page silently, which is worse than the current
+ *  explicit "file missing" state — so a mismatch is refused outright rather
+ *  than accepted with a warning. */
+router.post("/:id/files/:index/restore", requireSuperAdmin, upload.single("file"), async (req, res, next) => {
+  let savedPath = req.file?.path;
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded (field name: file)" });
+    const tender = await Tender.findById(req.params.id, { files: 1 });
+    if (!tender) return res.status(404).json({ error: "Not found" });
+    const index = Number(req.params.index);
+    const target = tender.files?.[index];
+    if (!target) return res.status(404).json({ error: "No such file on this tender" });
+
+    const { pageCount } = await extractPages(savedPath);
+    if (target.pageCount && pageCount !== target.pageCount) {
+      await fs.unlink(savedPath).catch(() => {});
+      return res.status(400).json({
+        error: `This PDF has ${pageCount} page(s), but "${target.name}" was originally ${target.pageCount} — doesn't look like the same file. Not restored.`,
+      });
+    }
+
+    target.filePath = savedPath;
+    await tender.save();
+    await Tender.updateOne(
+      { _id: req.params.id },
+      { $push: { events: `${new Date().toISOString()} file restored: "${target.name}" (index ${index}) re-uploaded by ${req.user.name}` } }
+    );
+    res.json({ file: { index, name: target.name, kind: target.kind, pageCount: target.pageCount, available: true } });
+  } catch (e) {
+    if (savedPath) await fs.unlink(savedPath).catch(() => {});
     next(e);
   }
 });
