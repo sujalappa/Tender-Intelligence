@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets — never commit real keys or DB credentials
+.env
+.env.local
+*.env
+!.env.example
+
+# Build output
+dist/
+dist-ssr/
+
+# Uploaded tender PDFs — client data, not code
+uploads/*
+!uploads/.gitkeep
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Claude Code local state (machine-specific tool permissions, not project config)
+.claude/settings.local.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
