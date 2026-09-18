@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: bhushilp-tender-api
+    runtime: node
+    plan: starter # NOT free — the free plan sleeps after ~15 min idle, and the
+      # next request wakes it with a 30-60s delay right before someone might
+      # start a call that legitimately runs up to 20 minutes.
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: uploads
+      mountPath: /var/data/uploads
+      sizeGB: 5 # holds uploaded tender PDFs; raise if you expect many large tenders
+    envVars:
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: PORT
+        value: 4000
+      - key: COOKIE_SECURE
+        value: true
+      - key: COOKIE_CROSS_SITE
+        value: true # client (Vercel) and API (Render) are different domains
+      # Everything below must be set by hand in the Render dashboard —
+      # secrets don't belong committed to this file:
+      #   MONGODB_URI, GEMINI_API_KEY, OPENROUTER_API_KEY, JWT_SECRET,
+      #   SUPERADMINS, ALLOWED_ORIGINS (your Vercel domain, e.g.
+      #   https://bhushilp.com,https://www.bhushilp.com)

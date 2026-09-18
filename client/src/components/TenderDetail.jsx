@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { api } from "../api.js";
+import { api, API_BASE } from "../api.js";
 import { StatusPill } from "./TenderList.jsx";
 import ModelPicker from "./ModelPicker.jsx";
 import ChatPanel from "./ChatPanel.jsx";
@@ -470,7 +470,7 @@ export default function TenderDetail() {
                 <button className={pdfView ? "link" : "link active"} onClick={() => setPdfView(false)}>text</button>
                 <button className={pdfView ? "link active" : "link"} onClick={() => setPdfView(true)} disabled={pageView.fileIndex < 0}>PDF page</button>
                 {pageView.fileIndex >= 0 && (
-                  <a className="link" href={`/api/tenders/${id}/file/${pageView.fileIndex}#page=${pageView.page}`} target="_blank" rel="noreferrer">open in new tab</a>
+                  <a className="link" href={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}#page=${pageView.page}`} target="_blank" rel="noreferrer">open in new tab</a>
                 )}
                 <button className="link" onClick={() => setPageView(null)}>close</button>
               </span>
@@ -482,7 +482,7 @@ export default function TenderDetail() {
               <iframe
                 className="pdf-frame"
                 title={`${pageView.file} page ${pageView.page}`}
-                src={`/api/tenders/${id}/file/${pageView.fileIndex}#page=${pageView.page}&view=FitH`}
+                src={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}#page=${pageView.page}&view=FitH`}
               />
             ) : (
               <pre>{pageView.text || "(no extractable text on this page)"}</pre>

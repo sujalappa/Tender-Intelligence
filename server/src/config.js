@@ -39,6 +39,16 @@ export const config = {
     // Only set this true behind HTTPS — a `secure` cookie is silently dropped
     // over plain http, which looks like "login succeeds then bounces back".
     cookieSecure: bool(process.env.COOKIE_SECURE, false),
+    // The client and API sitting on different registrable domains (e.g.
+    // bhushilp.com on Vercel, api-onrender-domain.com for the API) makes
+    // every fetch() call cross-site, not just cross-origin. SameSite=Lax
+    // (the default, right for same-site deploys) is silently NOT sent on a
+    // cross-site fetch/XHR — only on a top-level navigation — so login would
+    // 200 with a Set-Cookie header that the browser then refuses to attach
+    // to the next request, and every authenticated call looks logged-out
+    // with no visible error. SameSite=None fixes that but requires Secure,
+    // so this also forces cookieSecure on when set.
+    crossSiteCookies: bool(process.env.COOKIE_CROSS_SITE, false),
     // Where the UI is served from. Must list concrete origins (not "*"),
     // because a browser refuses to send cookies to a wildcard origin. Add the
     // machine's LAN address here when other people start using it, e.g.

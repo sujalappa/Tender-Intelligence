@@ -17,8 +17,11 @@ export function signToken(user) {
 export function setSessionCookie(res, token) {
   res.cookie(TOKEN_COOKIE, token, {
     httpOnly: true, // not readable by page scripts, so an XSS can't lift the session
-    sameSite: "lax",
-    secure: config.auth.cookieSecure, // must be false on plain-http office LAN or the cookie is silently dropped
+    sameSite: config.auth.crossSiteCookies ? "none" : "lax",
+    // A browser refuses SameSite=None without Secure — crossSiteCookies
+    // implies secure regardless of COOKIE_SECURE, since that combination
+    // (cross-site + non-secure) can never actually work.
+    secure: config.auth.crossSiteCookies || config.auth.cookieSecure,
     maxAge: config.auth.sessionDays * 24 * 60 * 60 * 1000,
   });
 }

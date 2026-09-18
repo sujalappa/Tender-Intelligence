@@ -8,11 +8,21 @@ const json = async (r) => {
   return body;
 };
 
+// Empty in dev (Vite's proxy in vite.config.js makes "/api/..." same-origin)
+// and whenever the client and API happen to share a domain in production.
+// Set VITE_API_URL at build time when they don't — e.g. the client deployed
+// to bhushilp.com on Vercel, the API on a separate onrender.com host — or
+// every request below would resolve against bhushilp.com itself and 404.
+export const API_BASE = import.meta.env.VITE_API_URL || "";
+
 // The session lives in an httpOnly cookie, so every call must opt in to
 // sending it — fetch omits cookies cross-origin by default, and the Vite dev
-// server counts as a different origin from the API.
+// server counts as a different origin from the API. When API_BASE points at
+// a different registrable domain, the server must also be configured with
+// COOKIE_CROSS_SITE=true or the browser will accept the cookie on login but
+// silently refuse to send it back on this request (see server/config.js).
 const send = (url, opts = {}) =>
-  fetch(url, {
+  fetch(API_BASE + url, {
     credentials: "include",
     ...opts,
     headers: opts.body ? { "Content-Type": "application/json", ...opts.headers } : opts.headers,
@@ -41,7 +51,7 @@ export const api = {
     return send(`/api/tenders/${id}/clauses${q ? `?${q}` : ""}`);
   },
   page: (id, page, file) => send(`/api/tenders/${id}/pages/${page}${file ? `?file=${encodeURIComponent(file)}` : ""}`),
-  upload: (form) => fetch("/api/tenders", { method: "POST", body: form, credentials: "include" }).then(json),
+  upload: (form) => fetch(API_BASE + "/api/tenders", { method: "POST", body: form, credentials: "include" }).then(json),
   resegregate: (id, body) => post(`/api/tenders/${id}/segregate`, body),
   remove: (id) => send(`/api/tenders/${id}`, { method: "DELETE" }),
   refreshOverview: (id, body = {}) => post(`/api/tenders/${id}/overview`, body),

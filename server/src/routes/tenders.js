@@ -20,7 +20,12 @@ const router = Router();
 // Per-tender, per-user collections.
 router.use("/:id/notes", notesRouter);
 router.use("/:id/chat-history", chatHistoryRouter);
-const UPLOAD_DIR = path.resolve("uploads");
+// Overridable so a host with an ephemeral filesystem (most PaaS platforms,
+// including Render's default web service) can be pointed at a mounted
+// persistent disk — without this, every redeploy silently wipes every
+// uploaded tender PDF, breaking the "open the real PDF page" citation proof
+// even though the extracted clauses/text remain fine (those live in Mongo).
+const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || "uploads");
 
 const upload = multer({
   storage: multer.diskStorage({
