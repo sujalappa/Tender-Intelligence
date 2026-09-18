@@ -151,24 +151,31 @@ details.small ul { margin: 4px 0 0; padding-left: 18px; }
 /* --- Print / "Download PDF" (window.print) ------------------------------
    .print-only holds the full, unfiltered report (every category, every
    clause) and is hidden on screen; .no-print is the interactive chrome
-   (nav, filters, buttons, modal) hidden only when printing. Two separate
-   print-only targets exist (.print-full, .print-summary) — which one is
-   visible on paper is toggled by a body class set synchronously right
-   before window.print() (see downloadPdf / downloadSummaryPdf), so a
-   click always prints exactly the document that button promised. */
+   (nav, filters, buttons, modal) hidden only when printing. Three separate
+   print-only targets exist (.print-full, .print-summary, .print-notes) —
+   which one is visible on paper is toggled by a body class set
+   synchronously right before window.print() (see downloadPdf /
+   downloadSummaryPdf / downloadNotesPdf), so a click always prints exactly
+   the document that button promised. */
 .print-only { display: none; }
 @media print {
   body { background: #fff; font-size: 11px; }
   .topbar, .no-print, .chat-panel { display: none !important; }
   .print-only.print-full { display: block !important; }
   .print-only.print-summary { display: none !important; }
+  .print-only.print-notes { display: none !important; }
   body.print-summary-mode .print-only.print-full { display: none !important; }
   body.print-summary-mode .print-only.print-summary { display: block !important; }
+  body.print-notes-mode .print-only.print-full { display: none !important; }
+  body.print-notes-mode .print-only.print-notes { display: block !important; }
   .page { max-width: none; margin: 0; padding: 0; }
   main { padding: 0; }
   .print-only h1 { font-size: 20px; margin: 0 0 4px; }
   .print-category { margin-top: 18px; page-break-before: auto; }
   .print-category h2 { font-size: 15px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .print-note { break-inside: avoid; border-bottom: 1px solid var(--border); padding: 8px 0; }
+  .print-note h3 { margin: 0 0 4px; font-size: 13px; }
+  .print-note p { margin: 4px 0; }
   .clause { break-inside: avoid; border: 1px solid var(--border); box-shadow: none; margin-bottom: 8px; }
   .clause blockquote { background: none; }
   a { color: var(--text); text-decoration: none; }

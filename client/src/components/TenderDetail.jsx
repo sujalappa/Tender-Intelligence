@@ -137,13 +137,6 @@ export default function TenderDetail() {
   const multiFile = (tender?.files?.length || 0) > 1;
   const pageLabel = (page, pageEnd, file) => `${multiFile && file ? `${file} ` : ""}p${page}${pageEnd && pageEnd !== page ? `–${pageEnd}` : ""}`;
 
-  const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ tender, clauses }, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${tender.title}.segregation.json`;
-    a.click();
-  };
   // No PDF library — the browser's own print-to-PDF is more reliable for a
   // long, text-heavy report (selectable text, correct pagination) than
   // rasterizing the DOM. A dedicated print-only block below renders the
@@ -155,8 +148,27 @@ export default function TenderDetail() {
   // via a body class rather than React state so it's synchronous with
   // window.print() (no re-render race), with afterprint cleaning it back up.
   const downloadSummaryPdf = () => { document.body.classList.add("print-summary-mode"); window.print(); };
+
+  // A third print target: the signed-in person's OWN notes on this tender.
+  // Notes aren't already loaded into this component's state (only NotesPanel
+  // fetches them, and only while that tab is open), so this fetches fresh
+  // rather than reusing stale/absent data — then the effect below waits for
+  // that state to actually land before printing, since window.print() would
+  // otherwise fire before React has painted the fetched notes into the DOM.
+  const [printNotes, setPrintNotes] = useState(null);
+  const downloadNotesPdf = () => { api.notes(id).then(setPrintNotes).catch(() => setPrintNotes([])); };
   useEffect(() => {
-    const cleanup = () => document.body.classList.remove("print-summary-mode");
+    if (printNotes === null) return;
+    document.body.classList.add("print-notes-mode");
+    window.print();
+  }, [printNotes]);
+
+  useEffect(() => {
+    const cleanup = () => {
+      document.body.classList.remove("print-summary-mode");
+      document.body.classList.remove("print-notes-mode");
+      setPrintNotes(null); // next click re-fetches, so a note added meanwhile isn't missed
+    };
     window.addEventListener("afterprint", cleanup);
     return () => window.removeEventListener("afterprint", cleanup);
   }, []);
@@ -246,7 +258,7 @@ export default function TenderDetail() {
         <div className="actions">
           {isAdmin && <button onClick={downloadSummaryPdf} disabled={!tender.execSummary} title={tender.execSummary ? "The one-page brief, for handing up the chain" : "Generate it first from the Executive Summary tab"}>Executive Summary PDF</button>}
           <button onClick={downloadPdf} disabled={!hasData} title={running ? "Exports what has finished so far" : ""}>Download Full PDF</button>
-          <button onClick={exportJson} disabled={!hasData} title={running ? "Exports what has finished so far" : ""}>Export JSON</button>
+          <button onClick={downloadNotesPdf} title="Only your own notes — private to you, like the Notes tab">Download My Notes PDF</button>
           {isAdmin && (
             <button
               title={running ? "If a job is genuinely still active, the server will refuse this and say so" : ""}
@@ -449,6 +461,28 @@ export default function TenderDetail() {
           <h1>{ov?.tenderTitle || tender.title} — Executive Summary</h1>
           <p className="mono small">{(tender.files || []).map((f) => f.name).join(", ")} · {tender.execSummary.sourceClauseCount} critical clauses</p>
           <ExecutiveSummary tenderId={id} summary={tender.execSummary} clauseCount={criticalCount} pageLabel={pageLabel} cite={cite} printMode />
+        </div>
+      )}
+
+      {/* Print/PDF-only: the signed-in person's own notes — shown only when
+          "Download My Notes PDF" set body.print-notes-mode (see CSS). Never
+          another person's notes, even for a super admin, matching the same
+          privacy the Notes tab enforces on screen. */}
+      {printNotes && (
+        <div className="print-only print-notes">
+          <h1>{ov?.tenderTitle || tender.title} — {user?.name}'s Notes</h1>
+          <p className="mono small">{(tender.files || []).map((f) => f.name).join(", ")} · {printNotes.length} note{printNotes.length === 1 ? "" : "s"}</p>
+          {printNotes.length === 0 && <p className="muted small">No notes yet.</p>}
+          {printNotes.map((n) => (
+            <section key={n._id} className="print-note">
+              <h3>
+                {n.title}
+                <span className="small muted"> — {n.importance}{n.category ? `, ${categories.find((c) => c.key === n.category)?.label || n.category}` : ""}</span>
+              </h3>
+              <p>{n.text}</p>
+              {n.sourceFile && n.page ? <p className="small muted mono">{pageLabel(n.page, null, n.sourceFile)}</p> : null}
+            </section>
+          ))}
         </div>
       )}
 
