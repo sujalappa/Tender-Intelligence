@@ -72,7 +72,7 @@ export default function NotesPanel({ tenderId, users, cite, pageLabel, openPage,
       {notes?.length === 0 && (
         <p className="muted small">
           {mine
-            ? "No notes yet. Use “add to my notes” on any clause or chat answer, or write one here — notes are private to you and survive every re-extraction."
+            ? "You haven't added any notes yet. Save a clause or an assistant answer to your notes, or write one directly — your notes stay private to you and remain available for as long as this tender does."
             : "Nothing here."}
         </p>
       )}
@@ -85,7 +85,7 @@ export default function NotesPanel({ tenderId, users, cite, pageLabel, openPage,
               <span className={`badge imp-${n.importance}`}>{n.importance}</span>
               {n.category && <span className="badge">{CATEGORY_LABELS[n.category] || n.category}</span>}
               <span className="badge flag">{SOURCE_LABELS[n.source] || n.source}</span>
-              {n.inExecSummary && <span className="badge verify" title="Also added to the executive summary">in brief</span>}
+              {n.inExecSummary && <span className="badge verify" title="Also included in the executive summary">In summary</span>}
               {n.author && <span className="badge linked">{n.author}</span>}
             </header>
             <p>{n.text}</p>
@@ -98,7 +98,7 @@ export default function NotesPanel({ tenderId, users, cite, pageLabel, openPage,
               {n.askedQuestion && <span title={n.askedQuestion}>· asked: “{n.askedQuestion.slice(0, 60)}{n.askedQuestion.length > 60 ? "…" : ""}”</span>}
               <span>· {new Date(n.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
               {(String(n.userId) === String(user?.id) || isAdmin) && (
-                <button className="link small danger" onClick={() => remove(n)}>delete</button>
+                <button className="link small danger" onClick={() => remove(n)}>Delete</button>
               )}
             </footer>
           </article>
@@ -171,13 +171,13 @@ export function NoteForm({ tenderId, preset = {}, onDone, onCancel, allowExecSum
       {allowExecSummary && (
         <label className="inline wide">
           <input type="checkbox" checked={form.addToExecSummary} onChange={set("addToExecSummary")} />
-          <span>Also add to the executive summary (shared — the model compresses it to a key/value line, tagged with your name)</span>
+          <span>Also include this in the executive summary (visible to the whole team, attributed to you)</span>
         </label>
       )}
       {error && <p className="error small wide">⚠ {error}</p>}
       <div className="wide add-actions">
         <button type="submit" disabled={busy}>{busy ? "Saving…" : "Save to my notes"}</button>
-        {onCancel && <button type="button" className="link" onClick={onCancel}>cancel</button>}
+        {onCancel && <button type="button" className="link" onClick={onCancel}>Cancel</button>}
       </div>
     </form>
   );

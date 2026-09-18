@@ -55,9 +55,9 @@ export default function TenderList() {
           <ModelPicker value={llm} onChange={setLlm} />
           <label className="inline">
             <input type="checkbox" checked={followLinks} onChange={(e) => setFollowLinks(e.target.checked)} />
-            Auto-fetch PDFs linked from inside the uploaded file(s) and include them as context
+            Automatically retrieve and include any linked documents referenced inside the uploaded file(s)
           </label>
-          <button type="submit" disabled={busy || !files.length}>{busy ? "Uploading…" : "Upload & segregate"}</button>
+          <button type="submit" disabled={busy || !files.length}>{busy ? "Uploading…" : "Upload & Analyse"}</button>
         </form>
         {error && <p className="error">{error}</p>}
       </section>
@@ -79,7 +79,7 @@ export default function TenderList() {
                 <td className="mono small">{t.model || "–"}</td>
                 <td>{t.summary ? Object.values(t.summary).reduce((a, c) => a + c.total, 0) : "–"}</td>
                 <td>
-                  <button className="link danger" onClick={() => api.remove(t._id).then(load)}>delete</button>
+                  <button className="link danger" onClick={() => api.remove(t._id).then(load)}>Delete</button>
                 </td>
               </tr>
             ))}
@@ -90,11 +90,18 @@ export default function TenderList() {
   );
 }
 
+const STATUS_LABELS = {
+  uploaded: "Queued",
+  parsing: "Reading document",
+  segregating: "Analysing",
+  done: "Complete",
+  failed: "Failed",
+};
+
 export function StatusPill({ status, progress }) {
   return (
     <span className={`pill pill-${status}`} title={progress}>
-      {status}
-      {["parsing", "segregating"].includes(status) && progress ? ` · ${progress}` : ""}
+      {STATUS_LABELS[status] || status}
     </span>
   );
 }

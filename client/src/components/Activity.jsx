@@ -22,8 +22,8 @@ export default function Activity() {
   return (
     <div className="page">
       <section className="card">
-        <h2>Team activity</h2>
-        <p className="muted small">The 200 most recent items across all tenders. Notes are private to their author — this page is the exception, and only super admins can open it.</p>
+        <h2>Team Activity</h2>
+        <p className="muted small">A record of recent notes and questions from your team across all tenders. Individual notes stay private otherwise — this overview is visible only to administrators.</p>
 
         <nav className="tabs no-print">
           <button className={tab === "notes" ? "tab active" : "tab"} onClick={() => setTab("notes")}>

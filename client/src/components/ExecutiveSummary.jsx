@@ -56,12 +56,13 @@ export default function ExecutiveSummary({ tenderId, summary, clauseCount, pageL
     return (
       <div className="exec-empty">
         <p>
-          A one-page brief for the head of the company: the model re-reads every critical clause and compresses each into a single key/value line — figures, dates and conditions only — merging duplicates and flagging risks, so this tender can be compared against others at a glance.
+          A concise, one-page summary of this tender's most critical terms — figures, dates and conditions at a glance,
+          with risks and conflicts clearly flagged. Ideal for sharing with leadership or comparing against other tenders.
         </p>
-        <p className="muted small">One model call over the {clauseCount} critical/conflicting clauses (~1 minute).</p>
+        <p className="muted small">Usually ready within a minute.</p>
         {canEdit
-          ? <button onClick={generate} disabled={busy}>{busy ? "Writing brief…" : "Generate executive summary"}</button>
-          : <p className="muted small">A super admin needs to generate this first.</p>}
+          ? <button onClick={generate} disabled={busy}>{busy ? "Preparing summary…" : "Generate executive summary"}</button>
+          : <p className="muted small">An administrator needs to generate this summary first.</p>}
         {error && <p className="error small">⚠ {error}</p>}
       </div>
     );
@@ -74,8 +75,8 @@ export default function ExecutiveSummary({ tenderId, summary, clauseCount, pageL
       {!printMode && (
         <div className="exec-toolbar">
           <span className="muted small">
-            Generated {when} from {summary.sourceClauseCount} critical/conflicting clauses
-            {clauseCount !== summary.sourceClauseCount && <span className="error"> · clause data has changed since ({clauseCount} now) — regenerate</span>}
+            Last generated {when}
+            {clauseCount !== summary.sourceClauseCount && <span className="error"> · This tender has been updated since — regenerate for the latest summary</span>}
           </span>
           {canEdit && <button className="link small" onClick={generate} disabled={busy}>{busy ? "Regenerating…" : "Regenerate"}</button>}
           {error && <span className="error small">⚠ {error}</span>}
@@ -96,7 +97,7 @@ export default function ExecutiveSummary({ tenderId, summary, clauseCount, pageL
                   <td className="exec-page"><Page p={p} /></td>
                   {!printMode && canEdit && (
                     <td className="exec-tools">
-                      <button className="link small danger" onClick={() => removePoint("__glance__", i, p.label)} title="Remove from brief">remove</button>
+                      <button className="link small danger" onClick={() => removePoint("__glance__", i, p.label)} title="Remove from brief">Remove</button>
                     </td>
                   )}
                 </tr>
@@ -125,7 +126,7 @@ export default function ExecutiveSummary({ tenderId, summary, clauseCount, pageL
                   <td className="exec-page"><Page p={p} /></td>
                   {!printMode && canEdit && (
                     <td className="exec-tools">
-                      <button className="link small danger" onClick={() => removePoint(sec.category, i, p.label)} title="Remove from brief">remove</button>
+                      <button className="link small danger" onClick={() => removePoint(sec.category, i, p.label)} title="Remove from brief">Remove</button>
                     </td>
                   )}
                 </tr>

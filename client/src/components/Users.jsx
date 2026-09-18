@@ -15,7 +15,7 @@ export default function Users() {
 
   const toggleActive = async (u) => {
     const verb = u.active ? "Deactivate" : "Reactivate";
-    if (!window.confirm(`${verb} ${u.name}? Their notes and chat history are kept either way.`)) return;
+    if (!window.confirm(`${verb} ${u.name}'s account? Their notes and activity history will be preserved.`)) return;
     try {
       await api.updateUser(u.id, { active: !u.active });
       load();
@@ -31,8 +31,8 @@ export default function Users() {
           <div>
             <h2>Users</h2>
             <p className="muted small">
-              Regular users can read tenders, ask the chatbot, and keep their own notes. Super admins can additionally upload
-              tenders, re-run extraction, generate the executive summary, and read everyone's notes and chat history.
+              Standard users can view tenders, use the assistant, and manage their own notes. Administrators can additionally
+              upload tenders, run analysis, generate executive summaries, and review all notes and activity across the team.
             </p>
           </div>
           <div className="actions">
@@ -55,17 +55,17 @@ export default function Users() {
                   <tr key={u.id} className={u.active ? "" : "inactive-row"}>
                     <td>
                       {u.name}
-                      {String(u.id) === String(user?.id) && <span className="badge linked">you</span>}
-                      {!u.active && <span className="badge">deactivated</span>}
+                      {String(u.id) === String(user?.id) && <span className="badge linked">You</span>}
+                      {!u.active && <span className="badge">Deactivated</span>}
                     </td>
                     <td className="mono">{u.email}</td>
-                    <td>{u.role === "superadmin" ? <strong>super admin</strong> : "user"}</td>
+                    <td>{u.role === "superadmin" ? <strong>Administrator</strong> : "User"}</td>
                     <td className="mono">{u.noteCount}</td>
                     <td className="mono">{u.questionCount}</td>
-                    <td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "never"}</td>
+                    <td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Never"}</td>
                     <td>
-                      <button className="link small" onClick={() => setResetting(resetting === u.id ? null : u.id)}>reset password</button>
-                      <button className="link small danger" onClick={() => toggleActive(u)}>{u.active ? "deactivate" : "reactivate"}</button>
+                      <button className="link small" onClick={() => setResetting(resetting === u.id ? null : u.id)}>Reset password</button>
+                      <button className="link small danger" onClick={() => toggleActive(u)}>{u.active ? "Deactivate" : "Reactivate"}</button>
                     </td>
                   </tr>
                 ))}
@@ -119,14 +119,14 @@ function UserForm({ onDone, onCancel }) {
         <span>Role</span>
         <select value={form.role} onChange={set("role")}>
           <option value="user">User</option>
-          <option value="superadmin">Super admin</option>
+          <option value="superadmin">Administrator</option>
         </select>
       </label>
       {error && <p className="error small wide">⚠ {error}</p>}
       <div className="wide add-actions">
         <button type="submit" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
-        <button type="button" className="link" onClick={onCancel}>cancel</button>
-        <span className="muted small">Tell them this password directly — it is shown here once and stored only as a hash.</span>
+        <button type="button" className="link" onClick={onCancel}>Cancel</button>
+        <span className="muted small">Share this password with them directly — for security, it won't be shown again after you leave this page.</span>
       </div>
     </form>
   );
@@ -160,7 +160,7 @@ function PasswordReset({ userId, name, onDone, onCancel }) {
       {error && <p className="error small wide">⚠ {error}</p>}
       <div className="wide add-actions">
         <button type="submit" disabled={busy}>{busy ? "Saving…" : "Set password"}</button>
-        <button type="button" className="link" onClick={onCancel}>cancel</button>
+        <button type="button" className="link" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );

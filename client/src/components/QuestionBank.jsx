@@ -32,8 +32,8 @@ export default function QuestionBank() {
   if (!rows.length) {
     return (
       <p className="muted small">
-        Nothing yet. Every question asked in the tender chat is pooled here (rewritten to be tender-agnostic) and fed into the
-        extraction prompt for later tenders, so the next one answers it up front instead of being asked again.
+        No questions yet. As your team uses the assistant, the questions they ask most often will appear here — helping every
+        new tender start with clearer, more complete answers already in place.
       </p>
     );
   }
@@ -41,11 +41,11 @@ export default function QuestionBank() {
   return (
     <>
       <p className="muted small">
-        Pooled from the tender chat and fed into future extractions — the top 12 per category are added to that category's prompt.
-        Delete anything that shouldn't shape future runs.
+        These are the questions your team asks most often, used to make future tenders more complete from the start.
+        Remove anything that shouldn't be considered going forward.
       </p>
       <table className="table small">
-        <thead><tr><th>Question</th><th>Section</th><th>Asked</th><th>Tenders</th><th></th></tr></thead>
+        <thead><tr><th>Question</th><th>Section</th><th>Times asked</th><th>Tenders</th><th></th></tr></thead>
         <tbody>
           {rows.map((q) => (
             <tr key={q.id}>
@@ -53,7 +53,7 @@ export default function QuestionBank() {
               <td>{LABELS[q.category] || q.category || "—"}</td>
               <td className="mono">{q.asked}</td>
               <td className="mono">{q.tenders}</td>
-              <td><button className="link small danger" onClick={() => remove(q.id)}>remove</button></td>
+              <td><button className="link small danger" onClick={() => remove(q.id)}>Remove</button></td>
             </tr>
           ))}
         </tbody>

@@ -15,7 +15,7 @@ export default function ModelPicker({ value, onChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!meta) return <span className="muted small">loading models…</span>;
+  if (!meta) return <span className="muted small">Loading models…</span>;
 
   const provider = value.provider || meta.defaultProvider;
   const providerMeta = meta[provider] || {};
@@ -54,7 +54,7 @@ export default function ModelPicker({ value, onChange }) {
       </label>
       <label className="inline">
         <input type="checkbox" checked={value.verify} onChange={(e) => onChange({ ...value, verify: e.target.checked })} />
-        Run "what did we miss?" verification pass (2× cost, higher recall)
+        Run a secondary review pass to catch anything missed (roughly doubles processing time and cost)
       </label>
       {providerMeta.error && <span className="error small">{providerMeta.error}</span>}
     </div>

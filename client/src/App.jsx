@@ -23,13 +23,14 @@ function Shell() {
       <header className="topbar">
         <Link to="/" className="brand">Bhushilp <span>Tender Intelligence</span></Link>
         <nav className="topnav">
-          <Link to="/questions">What we keep asking</Link>
-          {isAdmin && <Link to="/activity">Team activity</Link>}
+          <Link to="/questions">Common Questions</Link>
+          {isAdmin && <Link to="/activity">Team Activity</Link>}
           {isAdmin && <Link to="/users">Users</Link>}
-          <span className="who-am-i" title={user.email}>
-            {user.name}{isAdmin && <span className="badge linked">admin</span>}
+          <span className="account">
+            <span className="who-am-i" title={user.email}>{user.name}</span>
+            {isAdmin && <span className="role-tag">Admin</span>}
+            <button className="link logout" onClick={logout}>Sign out</button>
           </span>
-          <button className="link logout" onClick={logout}>sign out</button>
         </nav>
       </header>
       <main>
@@ -41,7 +42,7 @@ function Shell() {
             element={
               <div className="page">
                 <section className="card">
-                  <h2>What we keep asking</h2>
+                  <h2>Common Questions</h2>
                   <QuestionBank />
                 </section>
               </div>

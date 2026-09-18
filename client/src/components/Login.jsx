@@ -89,8 +89,7 @@ export default function Login() {
           </button>
 
           <p className="muted small login-foot">
-            Accounts are created by a super admin from the Users page — there is no self sign-up.
-            Forgotten your password? Ask a super admin to reset it.
+            Accounts are created by an administrator. If you've forgotten your password, please contact your administrator.
           </p>
         </form>
       </main>

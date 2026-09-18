@@ -161,7 +161,7 @@ export default function ChatPanel({ tenderId, provider, model, hasExecSummary, o
         {open && (
           <button
             className="chat-size"
-            title={maximized ? "Restore to corner" : "Maximize"}
+            title={maximized ? "Restore" : "Maximize"}
             aria-label={maximized ? "Restore chat" : "Maximize chat"}
             onClick={() => setMaximized((v) => !v)}
           >
@@ -175,7 +175,7 @@ export default function ChatPanel({ tenderId, provider, model, hasExecSummary, o
             {messages.length === 0 && (
               <div className="chat-empty">
                 <p className="muted small">
-                  Answers are grounded in the clauses already extracted for this tender — every fact is cited with a clickable page reference.
+                  Ask a question about this tender. Every answer includes a citation you can click to view the exact source page.
                 </p>
                 <div className="chat-starters">
                   {STARTERS.map((s) => (
@@ -192,13 +192,13 @@ export default function ChatPanel({ tenderId, provider, model, hasExecSummary, o
                   m.searchedFullDocument ? (
                     <span
                       className="src-note gap"
-                      title="The extracted clauses did not contain this, so the full tender text was read to answer it. That means extraction missed it — capture it into a section so the report has it next time."
+                      title="This answer required reviewing the full document directly. Consider saving it to your notes so it's readily available next time."
                     >
-                      ⚠ read from the full PDF — this was MISSING from the extracted clauses
+                      ⚠ Required a deeper document review
                     </span>
                   ) : (
-                    <span className="src-note ok" title="Answered from the clauses already extracted for this tender — no re-reading of the PDF was needed.">
-                      ✓ from extracted clauses
+                    <span className="src-note ok" title="This answer is based on details already identified in this tender.">
+                      ✓ Verified answer
                     </span>
                   )
                 )}
@@ -219,7 +219,7 @@ export default function ChatPanel({ tenderId, provider, model, hasExecSummary, o
                     />
                   ) : (
                     <button className={m.searchedFullDocument ? "link small add-btn urge" : "link small add-btn"} onClick={() => setAddingIdx(i)}>
-                      {m.searchedFullDocument ? "+ save to my notes so it isn't missed again" : "+ add to my notes"}
+                      + Save to my notes
                     </button>
                   )
                 )}
@@ -228,7 +228,7 @@ export default function ChatPanel({ tenderId, provider, model, hasExecSummary, o
             {loading && (
               <div className="chat-msg assistant">
                 <span className="who">Analyst</span>
-                <div className="bubble muted">thinking… <span className="small">(if the clauses don't cover it, the full document is searched too)</span></div>
+                <div className="bubble muted">Thinking…</div>
               </div>
             )}
             {error && <p className="error small">⚠ {error}</p>}

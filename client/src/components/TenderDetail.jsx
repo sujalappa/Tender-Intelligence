@@ -221,11 +221,11 @@ export default function TenderDetail() {
                 <li key={i} className="mono small">
                   📄 {f.name} {f.pageCount ? `(${f.pageCount}p)` : ""}
                   {f.kind === "linked" && (
-                    <span className="badge linked" title={`Auto-fetched from a link on ${f.fetchedFrom?.file} p.${f.fetchedFrom?.page}\n${f.sourceUrl}`}>linked</span>
+                    <span className="badge linked" title={`Automatically retrieved from a link found on ${f.fetchedFrom?.file} p.${f.fetchedFrom?.page}\n${f.sourceUrl}`}>linked</span>
                   )}
                   {missing && (
-                    <span className="badge missing-file" title="The PDF itself is gone from storage — extracted text/clauses are unaffected, but the citation-proof page view and any future re-extraction of this file won't work until it's restored.">
-                      ⚠ file missing
+                    <span className="badge missing-file" title="The original document is currently unavailable. Extracted details remain accurate — only viewing or updating the source file is affected.">
+                      ⚠ Unavailable
                     </span>
                   )}
                   {missing && isAdmin && <RestoreFileControl tenderId={id} index={i} kind={f.kind} onRestored={loadFileStatus} />}
@@ -278,12 +278,12 @@ export default function TenderDetail() {
               <p className="small muted">
                 <label className="inline">
                   <input type="checkbox" checked={rerun.resume} onChange={(e) => setRerun({ ...rerun, resume: e.target.checked })} />
-                  Resume — keep what already finished, only run what's checked below (uncheck for a full reset, e.g. after switching model/provider)
+                  Continue where this left off — only re-analyse the sections checked below (uncheck to start over completely, e.g. after switching model)
                 </label>
               </p>
               {rerun.resume && (
                 <div className="cat-picker small">
-                  <span className="muted">Run these categories (ticked = already succeeded ones get redone too):</span>
+                  <span className="muted">Sections to analyse (checking a completed section will redo it):</span>
                   {categories.map((c) => {
                     const done = doneCategories.has(c.key);
                     const checked = rerun.categories ? rerun.categories.includes(c.key) : !done;
@@ -298,7 +298,7 @@ export default function TenderDetail() {
                             setRerun({ ...rerun, categories: [...cur] });
                           }}
                         />
-                        {c.label} {done ? <span className="muted">(done, {tender.summary?.[c.key]?.total ?? "?"} items)</span> : <span className="error">(not done)</span>}
+                        {c.label} {done ? <span className="muted">(complete, {tender.summary?.[c.key]?.total ?? "?"} items)</span> : <span className="error">(not started)</span>}
                       </label>
                     );
                   })}
@@ -332,11 +332,11 @@ export default function TenderDetail() {
           {ov.notes && <p className="small muted">⚠ {ov.notes}</p>}
           {hasData && !running && isAdmin && (
             <p className="small muted overview-refresh">
-              {overviewMissing > 0 && <span>{overviewMissing} of {OVERVIEW_FIELDS.length} fields not found. </span>}
+              {overviewMissing > 0 && <span>{overviewMissing} of {OVERVIEW_FIELDS.length} key details are missing. </span>}
               <button className="link small" disabled={overviewBusy} onClick={refreshOverview}>
-                {overviewBusy ? "Refreshing overview…" : "Refresh overview only"}
+                {overviewBusy ? "Updating…" : "Refresh overview"}
               </button>
-              <span> — one small call (~80k tokens in, ~2k out), uses the extracted clauses as hints; nothing else is touched.</span>
+              <span> — re-checks these details using what's already been analysed, without affecting anything else.</span>
               {overviewError && <span className="error"> ⚠ {overviewError}</span>}
             </p>
           )}
@@ -401,7 +401,7 @@ export default function TenderDetail() {
           {active === NOTES_TAB && (
             <section className="card no-print">
               <h3>
-                My Notes <span className="muted small">— private to you, kept through every re-extraction</span>
+                My Notes <span className="muted small">— visible only to you</span>
               </h3>
               <NotesPanel
                 tenderId={id}
@@ -519,12 +519,12 @@ export default function TenderDetail() {
             <header>
               <strong>📄 {pageView.file} — Page {pageView.page}</strong>
               <span className="modal-tools">
-                <button className={pdfView ? "link" : "link active"} onClick={() => setPdfView(false)}>text</button>
-                <button className={pdfView ? "link active" : "link"} onClick={() => setPdfView(true)} disabled={pageView.fileIndex < 0}>PDF page</button>
+                <button className={pdfView ? "link" : "link active"} onClick={() => setPdfView(false)}>Text</button>
+                <button className={pdfView ? "link active" : "link"} onClick={() => setPdfView(true)} disabled={pageView.fileIndex < 0}>Original PDF</button>
                 {pageView.fileIndex >= 0 && (
-                  <a className="link" href={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}#page=${pageView.page}`} target="_blank" rel="noreferrer">open in new tab</a>
+                  <a className="link" href={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}#page=${pageView.page}`} target="_blank" rel="noreferrer">Open in new tab</a>
                 )}
-                <button className="link" onClick={() => setPageView(null)}>close</button>
+                <button className="link" onClick={() => setPageView(null)}>Close</button>
               </span>
             </header>
             {pdfView && pageView.fileIndex >= 0 ? (
@@ -606,12 +606,12 @@ function RestoreFileControl({ tenderId, index, kind, onRestored }) {
     <span className="restore-file">
       <input ref={inputRef} type="file" accept="application/pdf" hidden onChange={pick} />
       {kind === "linked" && (
-        <button className="link small" disabled={busy} onClick={refetch} title="Re-download from the same link it was originally auto-fetched from">
-          {busy ? "fetching…" : "re-fetch from source"}
+        <button className="link small" disabled={busy} onClick={refetch} title="Attempt to retrieve this document automatically from its original source">
+          {busy ? "Retrieving…" : "Retrieve automatically"}
         </button>
       )}
       <button className="link small" disabled={busy} onClick={() => inputRef.current?.click()}>
-        {busy ? "checking…" : "restore this file"}
+        {busy ? "Checking…" : "Upload a copy"}
       </button>
       {error && <span className="error small" title={error}>⚠ {error}</span>}
     </span>
@@ -663,14 +663,14 @@ function ClauseCard({ c, cite, pageLabel, onOpenPage, onImportance, onRemove, on
         )}
         {c.clauseStatus === "CONFLICT" && <span className="badge conflict" title={c.conflictNote}>⚡ conflict</span>}
         {c.mandatoryStatus && c.mandatoryStatus !== "NOT_SPECIFIED" && <span className="badge status">{c.mandatoryStatus}</span>}
-        {c.source === "manual" && <span className="badge manual" title={c.addedFrom ? `Added by a user from the question: ${c.addedFrom}` : "Added by a user from chat"}>added by team</span>}
-        {c.source === "verify" && <span className="badge verify" title="Found only by the verification pass">2nd pass find</span>}
-        {c.correctedByVerify && <span className="badge verify" title="Enriched/corrected by the verification pass">2nd pass fix</span>}
+        {c.source === "manual" && <span className="badge manual" title={c.addedFrom ? `Added based on a question asked in the assistant: “${c.addedFrom}”` : "Added manually by a team member"}>Added by team</span>}
+        {c.source === "verify" && <span className="badge verify" title="Identified during a secondary review pass">Additional finding</span>}
+        {c.correctedByVerify && <span className="badge verify" title="Refined during a secondary review pass">Refined</span>}
         {(c.flags || []).map((f) => <span key={f} className="badge flag">{f}</span>)}
         {!printMode && (
           <span className="clause-tools">
             {!noting && (
-              <button className="link small" title="Save this clause into your own notes" onClick={() => setNoting(true)}>+ add to my notes</button>
+              <button className="link small" title="Save this clause to your notes" onClick={() => setNoting(true)}>+ Save to my notes</button>
             )}
             {canEdit && onImportance && (
               <select
@@ -684,7 +684,7 @@ function ClauseCard({ c, cite, pageLabel, onOpenPage, onImportance, onRemove, on
                 <option value="low">low</option>
               </select>
             )}
-            {canEdit && onRemove && <button className="link small danger" title="Remove this clause" onClick={() => onRemove(c)}>remove</button>}
+            {canEdit && onRemove && <button className="link small danger" title="Remove this clause" onClick={() => onRemove(c)}>Remove</button>}
           </span>
         )}
       </header>
