@@ -216,7 +216,7 @@ export default function TenderDetail() {
                       ⚠ file missing
                     </span>
                   )}
-                  {missing && isAdmin && <RestoreFileControl tenderId={id} index={i} onRestored={loadFileStatus} />}
+                  {missing && isAdmin && <RestoreFileControl tenderId={id} index={i} kind={f.kind} onRestored={loadFileStatus} />}
                 </li>
               );
             })}
@@ -523,16 +523,34 @@ export default function TenderDetail() {
 }
 
 /**
- * Inline "pick a file to restore this source PDF" control for a super admin,
- * shown next to a file the server reports as missing from disk (e.g. an
- * ephemeral host wiped it on redeploy before a persistent disk was
- * attached). The server independently verifies the re-upload is the same
- * document by page count before accepting it — this is just the picker.
+ * Recovery control for a super admin, shown next to a file the server
+ * reports missing from disk (e.g. an ephemeral host wiped it on redeploy
+ * before a persistent disk was attached). Two paths, matching how the file
+ * got here in the first place:
+ *  - "linked" (auto-fetched from a URL inside the main PDF, e.g. a GCC/SCC
+ *    the person never downloaded themselves) → one-click re-fetch from that
+ *    same stored URL. No LLM call, so essentially free.
+ *  - "uploaded" (or a failed re-fetch) → pick a local file to re-upload.
+ * Either way the server independently verifies the result is the same
+ * document by page count before accepting it — this is just the trigger.
  */
-function RestoreFileControl({ tenderId, index, onRestored }) {
+function RestoreFileControl({ tenderId, index, kind, onRestored }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef(null);
+
+  const refetch = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api.refetchFile(tenderId, index);
+      onRestored?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const pick = async (e) => {
     const file = e.target.files?.[0];
@@ -553,6 +571,11 @@ function RestoreFileControl({ tenderId, index, onRestored }) {
   return (
     <span className="restore-file">
       <input ref={inputRef} type="file" accept="application/pdf" hidden onChange={pick} />
+      {kind === "linked" && (
+        <button className="link small" disabled={busy} onClick={refetch} title="Re-download from the same link it was originally auto-fetched from">
+          {busy ? "fetching…" : "re-fetch from source"}
+        </button>
+      )}
       <button className="link small" disabled={busy} onClick={() => inputRef.current?.click()}>
         {busy ? "checking…" : "restore this file"}
       </button>

@@ -87,4 +87,5 @@ export const api = {
     form.append("file", file);
     return fetch(`${API_BASE}/api/tenders/${id}/files/${index}/restore`, { method: "POST", body: form, credentials: "include" }).then(json);
   },
+  refetchFile: (id, index) => post(`/api/tenders/${id}/files/${index}/refetch`),
 };

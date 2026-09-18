@@ -9,7 +9,7 @@ import { answerChat } from "../services/chat.js";
 import { generateExecutiveSummary } from "../services/execSummary.js";
 import { AskedQuestion } from "../models/AskedQuestion.js";
 import { CATEGORY_DEFS } from "../services/prompts.js";
-import { extractPages } from "../services/pdf.js";
+import { extractPages, fetchLinkedPdf } from "../services/pdf.js";
 import { listOpenrouterModels } from "../services/llm/openrouter.js";
 import { config } from "../config.js";
 import { UsageEvent } from "../models/UsageEvent.js";
@@ -261,6 +261,49 @@ router.post("/:id/files/:index/restore", requireSuperAdmin, upload.single("file"
     res.json({ file: { index, name: target.name, kind: target.kind, pageCount: target.pageCount, available: true } });
   } catch (e) {
     if (savedPath) await fs.unlink(savedPath).catch(() => {});
+    next(e);
+  }
+});
+
+/** Re-download a lost LINKED file from the URL it was originally auto-fetched
+ *  from, instead of asking someone to find and re-upload it by hand (they
+ *  likely never had a local copy — it was pulled from a link inside the main
+ *  PDF, not something they uploaded themselves). Same page-count safety
+ *  check as manual restore; no LLM call, so this costs nothing but the
+ *  download. Only for kind: "linked" files — an "uploaded" file has no
+ *  sourceUrl to re-fetch from. */
+router.post("/:id/files/:index/refetch", requireSuperAdmin, async (req, res, next) => {
+  try {
+    const tender = await Tender.findById(req.params.id, { files: 1 });
+    if (!tender) return res.status(404).json({ error: "Not found" });
+    const index = Number(req.params.index);
+    const target = tender.files?.[index];
+    if (!target) return res.status(404).json({ error: "No such file on this tender" });
+    if (target.kind !== "linked" || !target.sourceUrl) {
+      return res.status(400).json({ error: "This file wasn't auto-fetched from a link, so there's no source URL to re-download it from — use 'restore this file' to re-upload it instead." });
+    }
+
+    const result = await fetchLinkedPdf(target.sourceUrl, UPLOAD_DIR);
+    if (!result.ok) {
+      return res.status(502).json({ error: `Could not re-download from the original link: ${result.reason}. The link may have expired or the portal may be blocking automated downloads — try 'restore this file' with a manually-downloaded copy instead.` });
+    }
+
+    const { pageCount } = await extractPages(result.filePath);
+    if (target.pageCount && pageCount !== target.pageCount) {
+      await fs.unlink(result.filePath).catch(() => {});
+      return res.status(400).json({
+        error: `The document at that URL now has ${pageCount} page(s), but "${target.name}" was originally ${target.pageCount} — the portal may have replaced it with a different version. Not restored.`,
+      });
+    }
+
+    target.filePath = result.filePath;
+    await tender.save();
+    await Tender.updateOne(
+      { _id: req.params.id },
+      { $push: { events: `${new Date().toISOString()} file re-fetched from source URL: "${target.name}" (index ${index}) by ${req.user.name}` } }
+    );
+    res.json({ file: { index, name: target.name, kind: target.kind, pageCount: target.pageCount, available: true } });
+  } catch (e) {
     next(e);
   }
 });
