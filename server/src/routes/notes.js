@@ -103,7 +103,12 @@ chatHistoryRouter.get("/", requireAuth, async (req, res, next) => {
       filter.userId = req.user._id;
     }
 
-    const messages = await ChatMessage.find(filter).sort({ createdAt: 1 }).limit(500).lean();
+    // `_id` breaks ties: the question and its answer are written in one
+    // create([...]) batch and so share a createdAt to the millisecond —
+    // sorting on createdAt alone left their order undefined, which showed
+    // the answer above the question about half the time. ObjectIds are
+    // generated in array order, so they restore the real sequence.
+    const messages = await ChatMessage.find(filter).sort({ createdAt: 1, _id: 1 }).limit(500).lean();
     if (!filter.userId) {
       const users = await User.find({}, { name: 1 }).lean();
       const byId = Object.fromEntries(users.map((u) => [String(u._id), u.name]));

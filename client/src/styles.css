@@ -214,8 +214,12 @@ details.small ul { margin: 4px 0 0; padding-left: 18px; }
 .modal-tools .link.active { font-weight: 700; text-decoration: none; }
 
 /* --- Delete-tender confirmation (permanent, type-to-confirm) --- */
-button.danger { background: var(--critical); border-color: var(--critical); }
-button.danger:disabled { opacity: .4; }
+/* Solid destructive button. Scoped with :not(.link) — without it this would
+   also repaint link-style buttons (button.link.danger, used for "Delete" in
+   the tender row), which keep red TEXT from a higher-specificity rule and so
+   would render red-on-red, i.e. invisible. */
+button.danger:not(.link) { background: var(--critical); border-color: var(--critical); }
+button.danger:not(.link):disabled { opacity: .4; }
 .delete-modal { max-width: 460px; }
 .delete-modal-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .delete-modal-body label { display: flex; flex-direction: column; gap: 5px; }
@@ -362,3 +366,10 @@ button.danger:disabled { opacity: .4; }
 .file-list li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 3px 0; }
 .badge.missing-file { background: #fee2e2; color: var(--critical); text-transform: none; }
 .restore-file { display: inline-flex; align-items: center; gap: 6px; }
+
+/* --- Model selector inside the chat widget --- */
+.chat-model { display: flex; align-items: center; gap: 8px; padding: 0 12px 10px; font-size: 11px; }
+.chat-model select {
+  flex: 1; min-width: 0; font: inherit; font-size: 11px; padding: 4px 6px;
+  border: 1px solid var(--border); border-radius: 5px; background: #fff; color: var(--text);
+}
