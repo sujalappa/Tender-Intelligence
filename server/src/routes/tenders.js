@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import { Tender } from "../models/Tender.js";
 import { Clause, CATEGORIES } from "../models/Clause.js";
 import { segregateTender, isJobActive, refreshOverview } from "../services/segregation.js";
@@ -26,7 +27,42 @@ router.use("/:id/chat-history", chatHistoryRouter);
 // persistent disk — without this, every redeploy silently wipes every
 // uploaded tender PDF, breaking the "open the real PDF page" citation proof
 // even though the extracted clauses/text remain fine (those live in Mongo).
-const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || "uploads");
+const DEFAULT_UPLOAD_DIR = path.resolve("uploads");
+
+/**
+ * Resolve the upload directory, falling back to the local default if the
+ * configured one can't be created.
+ *
+ * multer.diskStorage() calls mkdirp on its destination synchronously inside
+ * the constructor, i.e. at module load — so pointing UPLOAD_DIR at a path the
+ * process can't create (a disk mount path set in env before the disk itself
+ * was actually attached, say) threw EACCES and took the entire API down in a
+ * boot loop, with nothing running at all. Failing over to the default keeps
+ * the service up: uploads are then non-persistent, which is bad but is
+ * strictly better than the whole app being unreachable, and the warning says
+ * exactly what to fix.
+ */
+function resolveUploadDir() {
+  const configured = path.resolve(process.env.UPLOAD_DIR || DEFAULT_UPLOAD_DIR);
+  try {
+    fsSync.mkdirSync(configured, { recursive: true });
+    return configured;
+  } catch (e) {
+    console.error(
+      `[uploads] cannot use UPLOAD_DIR "${configured}": ${e.code || e.message}.\n` +
+        `          Falling back to "${DEFAULT_UPLOAD_DIR}" — uploads will NOT survive a redeploy.\n` +
+        `          On Render: attach a Disk with this exact mount path FIRST, then set UPLOAD_DIR to it.`
+    );
+    try {
+      fsSync.mkdirSync(DEFAULT_UPLOAD_DIR, { recursive: true });
+    } catch (inner) {
+      console.error(`[uploads] default upload dir also unusable: ${inner.message}`);
+    }
+    return DEFAULT_UPLOAD_DIR;
+  }
+}
+
+const UPLOAD_DIR = resolveUploadDir();
 
 const upload = multer({
   storage: multer.diskStorage({
