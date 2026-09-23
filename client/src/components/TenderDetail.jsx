@@ -12,6 +12,59 @@ const IMPORTANCE_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 const EXEC_TAB = "__exec__";
 const NOTES_TAB = "__notes__";
 
+// --- Readable rendering of extracted page text -----------------------------
+// Purely presentational. The stored text is deliberately left untouched:
+// that is what the model reads during extraction, and a cleanup heuristic
+// that silently dropped real content there would corrupt the source the
+// analysis reasons from, with no way back short of re-parsing. Here the raw
+// text is always one click away, so a bad transform costs nothing.
+
+/** Control bytes that GeM's bilingual PDFs embed mid-word (तार\u0013ख), which
+ *  render as □ boxes and make the Devanagari unreadable. \n and \t are kept. */
+const stripControlChars = (s) => s.replace(/[\u0000-\u0008\u000B-\u001F]/g, "");
+
+/** These PDFs draw every Devanagari token twice ("बड बड ववरण ववरण / /"),
+ *  so identical neighbouring tokens are collapsed to one. A heuristic: a
+ *  document that legitimately repeats a word back-to-back would lose the
+ *  repeat, which is why "Raw" exists. */
+const collapseRepeatedTokens = (s) =>
+  s
+    .split("\n")
+    .map((line) => line.split(" ").filter((tok, i, arr) => !(i > 0 && tok === arr[i - 1] && tok.trim() !== "")).join(" "))
+    .join("\n");
+
+/** Drops Devanagari entirely. On these bilingual tenders the English sits
+ *  right beside the Hindi and the Hindi is the damaged half, so this is
+ *  usually the most readable view rather than a loss of information. */
+const englishOnly = (s) =>
+  s
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/[ऀ-ॿ]+/g, "")
+        .replace(/\s{2,}/g, " ")
+        // Removing Devanagari can orphan punctuation that sat inside a Hindi
+        // word (रा!य leaves a bare "!"). Only this known-stray set is dropped,
+        // never a leading digit or currency symbol, which carry real meaning.
+        .replace(/^[\s/()!|,;:.\-–—]+/, "")
+        .trim()
+    )
+    .filter(Boolean)
+    .join("\n");
+
+const TEXT_MODES = [
+  { id: "clean", label: "Cleaned" },
+  { id: "english", label: "English only" },
+  { id: "raw", label: "Raw" },
+];
+
+function renderPageText(text, mode) {
+  const raw = text || "";
+  if (mode === "raw") return raw;
+  const cleaned = collapseRepeatedTokens(stripControlChars(raw));
+  return mode === "english" ? englishOnly(cleaned) : cleaned;
+}
+
 const OVERVIEW_FIELDS = [
   ["referenceNumber", "Reference / NIT No."],
   ["issuingAuthority", "Issuing authority"],
@@ -41,6 +94,7 @@ export default function TenderDetail() {
   // Citations open the real PDF page by default; "text" falls back to the
   // extracted layer (useful when a page is scanned or the PDF is gone).
   const [pdfView, setPdfView] = useState(true);
+  const [textMode, setTextMode] = useState("clean");
   const [rerun, setRerun] = useState(null);
   const [rerunError, setRerunError] = useState("");
   const [overviewBusy, setOverviewBusy] = useState(false);
@@ -574,7 +628,30 @@ export default function TenderDetail() {
                 src={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}?t=${pageView.nonce}#page=${pageView.page}&view=FitH`}
               />
             ) : (
-              <pre>{pageView.text || "(no extractable text on this page)"}</pre>
+              <>
+                <div className="text-modes">
+                  {TEXT_MODES.map((m) => (
+                    <button
+                      key={m.id}
+                      className={textMode === m.id ? "link small active" : "link small"}
+                      onClick={() => setTextMode(m.id)}
+                      title={
+                        m.id === "clean"
+                          ? "Removes stray control characters and the duplicated words these PDFs produce"
+                          : m.id === "english"
+                            ? "Hides the Devanagari, which is the damaged half of these bilingual pages"
+                            : "Exactly what was extracted — this is what the analysis reads"
+                      }
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                  {textMode !== "raw" && <span className="muted small">display only — the analysis always reads the raw text</span>}
+                </div>
+                <pre className={textMode === "raw" ? "page-text raw" : "page-text"}>
+                  {renderPageText(pageView.text, textMode) || "(no extractable text on this page)"}
+                </pre>
+              </>
             )}
             {pageView.links?.length > 0 && !pdfView && (
               <div className="page-links">
