@@ -350,6 +350,14 @@ router.post("/:id/files/:index/refetch", requireSuperAdmin, async (req, res, nex
  *  by index because filenames within a bundle are not unique. */
 router.get("/:id/file/:index", requireAuth, async (req, res, next) => {
   try {
+    // This URL identifies a SLOT (tender + file index), not fixed content:
+    // restoring a lost file writes different bytes to the same URL. Worse,
+    // the 410 below is cacheable by default per RFC 7231, so a browser that
+    // saw "missing" once kept replaying that cached JSON error in the PDF
+    // viewer even after the file had been restored and the server was
+    // serving it correctly. no-store keeps the viewer honest in both
+    // directions.
+    res.setHeader("Cache-Control", "no-store, must-revalidate");
     const tender = await Tender.findById(req.params.id, { files: 1, title: 1 }).lean();
     if (!tender) return res.status(404).json({ error: "Not found" });
     const f = tender.files?.[Number(req.params.index)];

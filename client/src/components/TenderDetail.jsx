@@ -102,11 +102,16 @@ export default function TenderDetail() {
   }, [clauses, active, q, importance]);
 
   const openPage = async (page, file) => {
-    setPageView(await api.page(id, page, file));
+    const view = await api.page(id, page, file);
+    // Cache-buster. The file URL names a slot, not fixed content, and a
+    // browser that once cached the "missing" error for it (410 is cacheable
+    // by default) will keep replaying that JSON in the viewer even after the
+    // file is restored — no-store on the server can't evict an entry that is
+    // already there. A per-open nonce sidesteps the poisoned entry entirely.
+    setPageView({ ...view, nonce: Date.now() });
     // Re-check availability on open, not just on mount: an ephemeral host can
     // drop a file at any time (a redeploy mid-session), and a stale "present"
-    // status is what makes the viewer try to embed a PDF that isn't there and
-    // render the server's JSON error as if it were a document.
+    // status is what makes the viewer try to embed a PDF that isn't there.
     loadFileStatus();
   };
 
@@ -529,7 +534,7 @@ export default function TenderDetail() {
                 <button className={pdfView ? "link" : "link active"} onClick={() => setPdfView(false)}>Text</button>
                 <button className={pdfView ? "link active" : "link"} onClick={() => setPdfView(true)} disabled={pageView.fileIndex < 0}>Original PDF</button>
                 {pageView.fileIndex >= 0 && (
-                  <a className="link" href={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}#page=${pageView.page}`} target="_blank" rel="noreferrer">Open in new tab</a>
+                  <a className="link" href={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}?t=${pageView.nonce}#page=${pageView.page}`} target="_blank" rel="noreferrer">Open in new tab</a>
                 )}
                 <button className="link" onClick={() => setPageView(null)}>Close</button>
               </span>
@@ -566,7 +571,7 @@ export default function TenderDetail() {
               <iframe
                 className="pdf-frame"
                 title={`${pageView.file} page ${pageView.page}`}
-                src={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}#page=${pageView.page}&view=FitH`}
+                src={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}?t=${pageView.nonce}#page=${pageView.page}&view=FitH`}
               />
             ) : (
               <pre>{pageView.text || "(no extractable text on this page)"}</pre>
