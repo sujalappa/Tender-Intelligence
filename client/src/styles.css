@@ -373,3 +373,8 @@ button.danger:not(.link):disabled { opacity: .4; }
   flex: 1; min-width: 0; font: inherit; font-size: 11px; padding: 4px 6px;
   border: 1px solid var(--border); border-radius: 5px; background: #fff; color: var(--text);
 }
+
+/* Shown in place of the PDF viewer when the source file is gone, instead of
+   letting the iframe render the endpoint's JSON error as a "document". */
+.pdf-unavailable { padding: 28px 24px; display: flex; flex-direction: column; gap: 8px; }
+.pdf-unavailable p { margin: 0; }

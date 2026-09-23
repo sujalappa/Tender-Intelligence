@@ -101,7 +101,14 @@ export default function TenderDetail() {
       .sort((a, b) => IMPORTANCE_ORDER[a.importance] - IMPORTANCE_ORDER[b.importance] || a.page - b.page);
   }, [clauses, active, q, importance]);
 
-  const openPage = async (page, file) => setPageView(await api.page(id, page, file));
+  const openPage = async (page, file) => {
+    setPageView(await api.page(id, page, file));
+    // Re-check availability on open, not just on mount: an ephemeral host can
+    // drop a file at any time (a redeploy mid-session), and a stale "present"
+    // status is what makes the viewer try to embed a PDF that isn't there and
+    // render the server's JSON error as if it were a document.
+    loadFileStatus();
+  };
 
   const setClauseImportance = async (clause, importance) => {
     const prev = clauses;
@@ -527,7 +534,32 @@ export default function TenderDetail() {
                 <button className="link" onClick={() => setPageView(null)}>Close</button>
               </span>
             </header>
-            {pdfView && pageView.fileIndex >= 0 ? (
+            {pdfView && pageView.fileIndex >= 0 && fileStatus?.[pageView.fileIndex]?.available === false ? (
+              // Without this branch the iframe embeds the endpoint's JSON
+              // error body and renders it as the "document" — the viewer
+              // showed a raw {"error":"The source PDF is no longer on disk"}
+              // where the page should be, with no hint of what to do next.
+              <div className="pdf-unavailable">
+                <p><strong>This document isn't available to view right now.</strong></p>
+                <p className="muted small">
+                  The extracted text and every clause from it are unaffected — you can still read this page's text using
+                  the <strong>Text</strong> tab above. Only the original PDF is missing, so it can't be displayed.
+                </p>
+                {isAdmin ? (
+                  <p className="small">
+                    Restore it from the file list at the top of this page, or re-upload it here:{" "}
+                    <RestoreFileControl
+                      tenderId={id}
+                      index={pageView.fileIndex}
+                      kind={tender.files?.[pageView.fileIndex]?.kind}
+                      onRestored={loadFileStatus}
+                    />
+                  </p>
+                ) : (
+                  <p className="small muted">Ask an administrator to restore the original file.</p>
+                )}
+              </div>
+            ) : pdfView && pageView.fileIndex >= 0 ? (
               // The browser's own PDF viewer, jumped to the cited page —
               // the executive verifies the clause against the real document,
               // not our extracted text.
