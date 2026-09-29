@@ -71,6 +71,10 @@ const TenderSchema = new mongoose.Schema(
     charCount: Number,
     estTokens: Number,
     pages: [PageSchema], // flat, across all files, in upload+link-discovery order
+    // Files left out of the analysis because their text is identical to one
+    // already included (the same document uploaded twice under two names).
+    // Kept visible rather than silently dropped, so nobody wonders where it went.
+    skippedFiles: [{ _id: false, name: String, duplicateOf: String }],
     status: {
       type: String,
       enum: ["uploaded", "parsing", "segregating", "done", "failed"],

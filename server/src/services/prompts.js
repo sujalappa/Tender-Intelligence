@@ -1,7 +1,8 @@
 /**
  * Category definitions drive both the extraction prompt and the verification
- * prompt. Be generous in what counts – the executive would rather see a
- * clause twice than miss it once.
+ * prompt. Each clause has ONE home category (see CATEGORY_OWNERSHIP) —
+ * listing the same clause under two or three categories measured at 36–66%
+ * of all output on real tenders and read to executives as noise.
  *
  * Extraction standard adapted from a prior tender-analysis project's prompt
  * library (the "sweep method" + "depth standard" + BAD/GOOD contrastive
@@ -16,14 +17,14 @@ export const CATEGORY_DEFS = {
   commercial: {
     label: "Commercial Terms",
     description: `Terms that govern the commercial relationship and bid process:
-- Tender fee, EMD / bid security (amount, form, validity, forfeiture, refund, MSE/Startup exemptions and their proof)
-- Performance security / PBG / security deposit / retention money (percentage, basis, format, validity, claim period, release conditions)
+- Tender fee, EMD / bid security (amount, validity, forfeiture, refund, MSE/Startup exemptions and their proof) — list EVERY acceptable instrument (DD / BG / e-BG / FDR / online transfer / insurance surety bond) and any the tender explicitly refuses; for online payment, the beneficiary bank, account number and IFSC
+- Performance security / PBG / security deposit / retention money (percentage, basis, format, validity, claim period, release conditions) — list EVERY acceptable instrument, stating explicitly whether an insurance surety bond is accepted, and any instrument the tender refuses
 - Bid validity period, bid submission mode, deadlines, pre-bid meeting, opening dates
 - Payment terms, billing cycle, running account bills, mobilisation/secured advance (percentage, interest, recovery schedule), interest
 - Price basis (firm/variable), price escalation / variation formula (verbatim, with indices and base date), taxes & duties (GST, TDS), cess
 - Contract period, completion / delivery schedule, milestones tied to payment
-- Liquidated damages, penalties, incentives, bonus clauses — exact rate, basis, cap
-- Defect liability period, warranty, AMC/O&M obligations, extension of time
+- Liquidated damages, penalties, incentives, bonus clauses — exact rate, basis (per day / per week, on what value), cap; if the tender gives a SLAB, MILESTONE or COMPLETION-BENCHMARK schedule, reproduce every row of it, never a summary of it
+- Defect liability / warranty PERIOD and any money held against it, extension of time (the technical service obligations during warranty belong to Technical)
 - Evaluation method (L1 / QCBS / weightage), price bid format rules, negotiation, splitting of quantity
 - Purchase preference (MSE, Make in India), reverse auction, rate contract rules
 - Currency, exchange rate, incoterms, freight, insurance during transit
@@ -36,7 +37,7 @@ export const CATEGORY_DEFS = {
 - Audited balance sheet / P&L / ITR / CA certificate requirements (including UDIN, validity window of the certificate), financial year definitions
 - Bank/banker certificate requirements for credit lines (CC/OD), validity window
 - Bid capacity formula, financial standing, credit rating, profitability requirement (no loss years)
-- Estimated cost / tender value, cost of bid document
+- Estimated cost / tender value (the tender FEE is Commercial)
 - BOQ / price schedule structure, item-rate vs lump-sum vs percentage rate, how rates must be quoted (inclusive/exclusive of taxes), abnormally low bid handling
 - Financial bid opening, arithmetic correction rules, rounding
 - Holding/subsidiary company rules for financial qualification (consolidated report + authorisation letter)
@@ -55,7 +56,7 @@ export const CATEGORY_DEFS = {
 - Quality assurance plan (QAP), inspection test plans (ITP), documentation obligations
 - Drawings, design responsibility, method statements, site conditions, survey/soil data
 - Execution requirements: manpower deployment, plant & machinery deployment, shifts, safety (HSE) systems, gas monitoring, environment
-- Warranty / DLP / comprehensive AMC / SLA response times / spare parts availability
+- Technical obligations during warranty / DLP / AMC: SLA response times, uptime, spare parts availability (the warranty PERIOD itself is Commercial)
 - Timelines by activity, milestones, work programme, reporting, handover, training, documentation, spares
 - Software/IT: architecture, SLAs, uptime, integration, data, security, hosting requirements (if applicable)`,
   },
@@ -67,17 +68,17 @@ export const CATEGORY_DEFS = {
 - Suspension of work, termination (for convenience / default / insolvency), consequences of termination, risk-purchase clause
 - Indemnity, limitation of liability (caps, exclusions), consequential loss, insurance obligations (CAR, WC, TPL, transit/marine — sums insured, deductibles, who bears premium)
 - Subcontracting / assignment restrictions
-- JV / consortium rules: minimum participation shares (e.g. lead member >= 50%, others >= 20-25%), lock-in period, debarment if the JV breaks midway, each member's liability (joint & several), MSE/EMD exemption non-applicability for JV bidders
+- Joint and several LIABILITY of JV / consortium members and debarment if a JV breaks midway (JV eligibility and participation-share rules belong to Technical Qualification)
 - Confidentiality, IP ownership, data protection
 - Compliance with labour laws, minimum wages, PF/ESI, contract labour act, child labour, statutory approvals
 - Integrity pact, anti-corruption, conflict of interest, blacklisting / debarment / banning of business conditions (including duration, e.g. 12-month ban) and false-information consequences
-- Land border / national-security restrictions on bidders, Make in India / local-content requirements
+- Country-of-origin / land-border restrictions: which countries are covered, the registration required with the Competent Authority, the declaration to submit, and the consequence of a false declaration (Make in India purchase preference is Commercial)
 - Right of the employer to reject bids, amend tender, cancel without reason; corrigenda binding
 - Variation / change order rules, deviations, order of precedence of documents (which document wins in a conflict), notices, signatures, stamp duty`,
   },
   technical_qualification: {
     label: "Technical Qualification Parameters",
-    description: `Every criterion the bidder must satisfy to be technically/financially eligible (pre-qualification / eligibility / PQR criteria — "who is qualified to bid?"). Extract EACH criterion as a separate atomic item:
+    description: `Every NON-financial criterion the bidder must satisfy to be eligible (pre-qualification / eligibility / PQR criteria — "who is qualified to bid?"). Financial eligibility thresholds (turnover, net worth, solvency, bid capacity) belong to Financial, not here. Extract EACH criterion as a separate atomic item:
 - Similar work experience: definition of "similar work", number of works, value thresholds (e.g. one work of 80%, two of 50%, three of 40% of estimated cost), completion window (last 5/7 years), ongoing vs completed, escalation factor for old works, ongoing-project handling
 - Equipment/technology experience: OEM/manufacturer experience, production achieved by equipment, capacity, deployment history
 - Registration / class / category with government departments, licences (electrical, PWD, CPWD), enlistment
@@ -85,9 +86,9 @@ export const CATEGORY_DEFS = {
 - Key personnel: roles, qualification, years of experience, number, deployment requirement
 - Plant, machinery, equipment, tools to be owned or leased; lab facilities; machinery ratings
 - Organisation: years in business, incorporation, PAN/GST/PF/ESI registration, manufacturer vs dealer, MSE/Startup status and required proof (UDYAM/DPIIT)
-- JV / consortium rules: lead member share, each member's criteria, max members, experience/turnover sharing rules
-- Not blacklisted / no litigation declarations, past performance certificates, site-visit mandates, sample submissions
-- Documentary evidence required for each criterion and its format (client certificate, completion certificate, CA certificate with UDIN, banker certificate, OEM MAF)
+- JV / consortium eligibility: whether JVs are allowed, lead member share, minimum share of other members, max members, lock-in, how each member's experience counts, MSE/EMD exemption non-applicability for JV bidders
+- Past performance certificates, site-visit mandates, sample submissions (blacklisting / debarment declarations belong to Legal)
+- Documentary evidence required for each criterion, its format AND its formality (client certificate, completion certificate, CA certificate with UDIN, banker certificate, OEM MAF — and whether it must be notarised, attested, apostilled, or endorsed by an Embassy / High Commission, especially for foreign bidders)
 - Any technical scoring / marking scheme used for shortlisting`,
   },
 };
@@ -127,7 +128,11 @@ F. GRANULARITY — one item per distinct requirement. Split a paragraph into sep
 
 G. THE CATEGORY LIST IS ILLUSTRATIVE, NOT A CHECKLIST — the bullet points in CATEGORY DEFINITION are common examples, not the full boundary of the category. Every tender, department (GeM, CPPP, MSTC, IREPS, state PWD, PSU) and client writes bespoke, non-standard clauses that won't match any bullet verbatim. If you find a clause, section or paragraph that clearly serves the same purpose as this category — even if it matches no bullet — extract it anyway using your own judgment for its title/criterion name. Do NOT skip a real requirement just because it wasn't named above; do NOT invent one that isn't actually in the text.
 
-H. LINKS — some pages carry a "[LINKS ON THIS PAGE]" block listing hyperlinks found on that page (e-procurement portal URLs, referenced external documents, corrigendum pages). When a link is what a clause is telling the bidder to use (submission portal, download location, reference document), put it in the item's 'link' field. Do not invent a link that is not listed; leave 'link' empty if none applies.`;
+H. LINKS — some pages carry a "[LINKS ON THIS PAGE]" block listing hyperlinks found on that page (e-procurement portal URLs, referenced external documents, corrigendum pages). When a link is what a clause is telling the bidder to use (submission portal, download location, reference document), put it in the item's 'link' field. Do not invent a link that is not listed; leave 'link' empty if none applies.
+
+I. DOCUMENT FORMALITY — whenever the tender asks for a document, certificate, declaration or affidavit, record in 'evidenceRequired' exactly HOW it must be furnished: original or copy, self-attested, notarised, apostilled, endorsed by an Embassy / High Commission / Consulate, on non-judicial stamp paper (and its value), signed by whom, and in which annexure format. If the tender says such a formality is NOT needed, say that too. Bid teams lose bids on these details and check them one by one.
+
+J. UNREADABLE PAGES — a page marked "[NO EXTRACTABLE TEXT – possibly scanned image]" could not be read. Never infer or reconstruct what such a page contains, and never extract an item from it.`;
 
 /** JSON schema shared by Gemini (responseSchema) and OpenRouter (json_schema). */
 export const EXTRACTION_SCHEMA = {
@@ -185,9 +190,30 @@ export const EXTRACTION_SCHEMA = {
   required: ["items", "notes"],
 };
 
-const BASE_SYSTEM = `You are a senior tender analyst for an Indian EPC / supply contractor. You read government and PSU tender documents line by line and never miss a clause. You are exhaustive: you would rather list a borderline clause than omit it. This document may bundle several separate files (NIT, GCC, SCC, BOQ, corrigenda, and documents attached via a link inside one of them) concatenated together — each page is marked <<< PAGE n (file p.m) >>>, where 'n' is a running number across the whole bundle and '(file p.m)' tells you which original file and its own page number, so you can reason about which source document a clause came from (needed to detect conflicts between documents). You always cite 'n' — the number right after PAGE — as the page value; never the 'p.m' number in parentheses. The reader relies on your output INSTEAD of reading the tender, so every item must carry everything the clause says, not a keyword and a number. You never label clauses as "high risk" or compare with market norms — reasoning must be grounded only in what the tender text says. You never assume or hallucinate standard terms not present in the text. You output only JSON matching the schema.`;
+const BASE_SYSTEM = `You are a senior tender analyst for an Indian EPC / supply contractor. You read government and PSU tender documents line by line and never miss a clause. You are exhaustive within the category you are asked for: you would rather list a borderline clause than omit it — but a clause whose home is another category is not borderline, it is someone else's. This document may bundle several separate files (NIT, GCC, SCC, BOQ, corrigenda, and documents attached via a link inside one of them) concatenated together — each page is marked <<< PAGE n (file p.m) >>>, where 'n' is a running number across the whole bundle and '(file p.m)' tells you which original file and its own page number, so you can reason about which source document a clause came from (needed to detect conflicts between documents). You always cite 'n' — the number right after PAGE — as the page value; never the 'p.m' number in parentheses. The reader relies on your output INSTEAD of reading the tender, so every item must carry everything the clause says, not a keyword and a number. You never label clauses as "high risk" or compare with market norms — reasoning must be grounded only in what the tender text says. You never assume or hallucinate standard terms not present in the text. You output only JSON matching the schema.`;
 
-export function extractionPrompt(category, docText, windowInfo, learnedQuestions) {
+/**
+ * One home per topic. Each category is extracted in its own call that can't
+ * see the others, and the category examples overlap at the edges (penalties,
+ * JV rules, warranty, turnover), so without an explicit tie-break every
+ * boundary clause was pulled in by two or three categories — measured at
+ * 36–66% of all clauses on real tenders. This table is the tie-break.
+ */
+const CATEGORY_OWNERSHIP = `CATEGORY OWNERSHIP — every clause has exactly ONE home. Where a topic could fit several categories, this table decides:
+- Tender fee, EMD / bid security, performance security / PBG, security deposit, retention money → Commercial
+- Bid validity, submission / opening dates, pre-bid meeting, contract period, payment milestones → Commercial
+- Payment terms, advances, price basis, price escalation, liquidated damages, penalties, incentives → Commercial
+- Warranty / DLP PERIOD, extension of time, evaluation method (L1 / QCBS), reverse auction, MSE / Make in India purchase preference → Commercial
+- Turnover, net worth, solvency, working capital, bid capacity, audited accounts, CA / banker certificates → Financial
+- Estimated cost, BOQ pricing format, how rates are quoted, GST / tax treatment of the quoted price, arithmetic correction → Financial
+- Scope, quantities, specifications, equipment to deploy, standards, testing, QA, execution method, manpower on site, HSE → Technical
+- Service obligations during warranty / AMC (response times, uptime, spares), activity-wise work programme → Technical
+- Arbitration, jurisdiction, force majeure, suspension, termination, risk purchase, indemnity, liability caps, insurance → Legal
+- Subcontracting, confidentiality, labour-law compliance, integrity pact, blacklisting / debarment, country-of-origin / land-border restrictions, order of precedence → Legal
+- Similar-work experience, owned equipment as an eligibility condition, key personnel, certifications, registrations / licences, years in business, JV / consortium eligibility → Technical Qualification
+A single clause that touches two topics is extracted ONCE, in the home of its main subject (e.g. "EMD is forfeited if the bidder withdraws" → Commercial, because its subject is the EMD).`;
+
+export function extractionPrompt(category, docText, windowInfo, learnedQuestions, otherCategoryItems = []) {
   const def = CATEGORY_DEFS[category];
   const criteriaRule = isCriteriaCategory(category)
     ? "For each criterion fill criterion / threshold / unit / comparator / evidenceRequired / mandatoryStatus, plus timePeriod / measurementPeriod / applicability / exception wherever the tender states them."
@@ -206,21 +232,32 @@ On previous tenders, executives had to ask the following to get answers this rep
 ${learnedQuestions.map((q) => "- " + q).join(NEWLINE)}
 `
     : "";
-  const user = `TASK: Extract EVERY clause, condition, requirement or figure in this tender that belongs to the category "${def.label}".
+  // What the other categories of this tender have already captured. Rendered
+  // as title + page only (a few tokens each) — enough for the model to
+  // recognise a clause that is already covered without re-sending its text.
+  const alreadyCaptured = otherCategoryItems.length
+    ? `
+ALREADY CAPTURED UNDER OTHER CATEGORIES — do NOT extract these again here. They are already in the report under the category shown:
+${otherCategoryItems.map((c) => `- [${c.category}] p${c.page}: ${c.title}`).join(NEWLINE)}
+`
+    : "";
+  const user = `TASK: Extract EVERY clause, condition, requirement or figure in this tender whose home category is "${def.label}".
 
 CATEGORY DEFINITION (illustrative examples — not an exhaustive checklist; see EXTRACTION STANDARD rule G)
 ${def.description}
+
+${CATEGORY_OWNERSHIP}
 
 ${EXTRACTION_STANDARD}
 
 ADDITIONAL RULES
 1. 'page' must be the number immediately after 'PAGE' in the nearest preceding marker (not the parenthetical p.m label).
 2. If the same requirement is repeated verbatim (not conflicting) elsewhere, include it once and mention the other page(s) in requirementDescription.
-3. If a clause seems to belong to another category too, still include it here if it materially affects "${def.label}".
+3. Extract ONLY clauses whose home, per CATEGORY OWNERSHIP, is "${def.label}". A clause whose home is another category is extracted there — leave it out here, even if it mentions something relevant to "${def.label}". Being exhaustive means missing nothing that belongs here, not repeating what belongs elsewhere.
 4. ${criteriaRule}
 5. Mark importance 'critical' for anything that can lead to rejection of the bid, forfeiture, or heavy penalty.${learned}
 6. Return an empty items array only if the document truly contains nothing for this category.
-${windowNote}
+${alreadyCaptured}${windowNote}
 
 DOCUMENT
 =========
@@ -263,7 +300,7 @@ export const VERIFY_SCHEMA = {
   required: ["missing", "incomplete", "notes"],
 };
 
-export function verificationPrompt(category, docText, found, windowInfo, toGlobal) {
+export function verificationPrompt(category, docText, found, windowInfo, toGlobal, otherCategoryItems = []) {
   const def = CATEGORY_DEFS[category];
   // The document text below uses global PAGE markers; `found` items carry
   // local (file, page) citations, so translate back to the global number
@@ -283,6 +320,8 @@ export function verificationPrompt(category, docText, found, windowInfo, toGloba
 CATEGORY DEFINITION (illustrative examples — not an exhaustive checklist; see EXTRACTION STANDARD rule G)
 ${def.description}
 
+${CATEGORY_OWNERSHIP}
+
 ${EXTRACTION_STANDARD}
 
 ALREADY EXTRACTED BY PASS 1 (${found.length} items)
@@ -294,6 +333,9 @@ AUDIT TASK
 3. Put clauses pass 1 missed ENTIRELY into 'missing' (same shape as a normal extraction item).
 4. Put clauses pass 1 listed but only PARTIALLY captured into 'incomplete' — reference the exact clauseRef/page from the list above as 'targetClauseRef'/'targetPage', explain in 'whatWasMissing', and give the FULL corrected item in 'corrected' (repeat every field complete and fixed, not just the delta).
 5. Do NOT duplicate an item pass 1 already captured completely and correctly.
+5a. 'missing' is only for clauses whose home, per CATEGORY OWNERSHIP, is "${def.label}". A clause that belongs to another category is not missing from this one — leave it out.${otherCategoryItems.length ? `
+5b. These are already captured under other categories and must not be reported as missing here:
+${otherCategoryItems.map((c) => `   - [${c.category}] p${c.page}: ${c.title}`).join(NEWLINE)}` : ""}
 6. Apply the CONFLICT rule (part E of the standard) even here: if you find the same term with a different number than what's listed above, that's a 'missing' item with clauseStatus='CONFLICT'.
 7. If nothing was missed and nothing was incomplete, return {"missing": [], "incomplete": [], "notes": "..."}.
 ${windowNote}
@@ -449,6 +491,27 @@ function execDigestLine(c) {
  * @param clauses lean Clause docs to summarize — the caller passes only the
  *                ones that belong in an exec brief (critical + conflicts)
  */
+/**
+ * One line per source document saying whether its text could actually be
+ * read. Without this, a clause missing from the data read to the model as
+ * "the tender says nothing about X" — and it told a bid manager a scanned
+ * tech spec had no notarisation requirement, when not one word of that spec
+ * had ever been read. Needs `tender.pages`, so callers must load them.
+ */
+function documentStatusLines(tender) {
+  const textByFile = {};
+  for (const pg of tender.pages || []) textByFile[pg.file] = (textByFile[pg.file] || 0) + (pg.text || "").trim().length;
+  const lines = [
+    ...(tender.files || []).map((f) =>
+      (textByFile[f.name] || 0) > 0
+        ? `- ${f.name} (${f.pageCount ?? "?"} pages) — read`
+        : `- ${f.name} (${f.pageCount ?? "?"} pages) — SCANNED: no text could be read, contents UNKNOWN`
+    ),
+    ...(tender.skippedFiles || []).map((f) => `- ${f.name} — not analysed: identical content to ${f.duplicateOf}`),
+  ];
+  return lines.join(NEWLINE) || "(none listed)";
+}
+
 export function executiveSummaryPrompt(tender, clauses) {
   const system = `You are the bid-desk head writing a one-page brief for the company's managing director, who will use it to decide whether to bid and to compare this tender against others on the table. The MD reads dozens of these; every line must earn its place. You output only JSON matching the schema.
 
@@ -458,7 +521,8 @@ RULES
 3. Copy file and page exactly from the [file p#] tag in front of the source clause. Never invent a page.
 4. Flag risk where it exists: a conflict between documents, a disqualification trigger, an unusually harsh penalty. Lead the value with "RISK — " so it stands out in a table.
 5. Use the tender's own figures and units as printed (lakh/crore notation, INR, the exact dates). Do not convert or round unless adding a parenthetical.
-6. Do not editorialize or recommend whether to bid — that's the MD's call. Present what the tender demands, clearly.`;
+6. Do not editorialize or recommend whether to bid — that's the MD's call. Present what the tender demands, clearly.
+7. If any document under DOCUMENTS IN THIS TENDER is marked SCANNED, add a watchout naming it: its text could not be read, so nothing in it is reflected in this brief and it must be reviewed by hand before bidding.`;
 
   const ov = tender.overview || {};
   const overviewLines = Object.entries(ov)
@@ -472,6 +536,9 @@ RULES
     .join("\n");
 
   const user = `TENDER: ${ov.tenderTitle || tender.title}
+
+DOCUMENTS IN THIS TENDER
+${documentStatusLines(tender)}
 
 OVERVIEW FACTS ALREADY EXTRACTED
 ${overviewLines || "(none)"}
@@ -544,7 +611,7 @@ function clauseDigestLine(c) {
  * @param message the new question
  */
 export function chatPrompt(tender, clauses, history, message, docText) {
-  const system = `You are a senior tender/bid-desk analyst briefing a bid manager who is deciding whether and how to bid on this tender. Answer ONLY from the extracted clause data and overview facts given below — this data comes from an exhaustive clause-by-clause read of the full tender document (commercial, financial, technical, legal, technical-qualification), so treat it as authoritative for what the tender contains. You output only JSON matching the schema.
+  const system = `You are a senior tender/bid-desk analyst briefing a bid manager who is deciding whether and how to bid on this tender. Answer ONLY from the extracted clause data and overview facts given below — this data comes from a clause-by-clause read of the tender's READABLE documents (see DOCUMENTS IN THIS TENDER), so treat it as authoritative for what those documents contain, and for nothing else. You output only JSON matching the schema.
 
 RULES
 1. Cite every factual claim with the exact tag shown before it, e.g. "[GeM-Bidding-9851277.pdf p26]" — copy it exactly, never invent a tag, filename or page number. Each bracket holds exactly ONE file and ONE page — if two facts sit on different pages, use two separate tags back to back, e.g. "[file.pdf p57] [file.pdf p58]", never "[file.pdf p57, p58]".
@@ -552,7 +619,8 @@ RULES
 3. When a topic is covered by clauses in more than one category (EMD often appears in commercial, financial AND technical-qualification), synthesize them into one clear answer instead of just repeating each one.
 4. If any clause relevant to the question has CONFLICT status, say so explicitly and explain what's inconsistent — that's exactly the kind of thing a bid manager must not miss.
 5. Be concise and directive, like a colleague briefing another colleague — lead with the answer, then supporting detail. Short paragraphs or a tight bullet list; don't restate the question.
-6. This is a convenience layer over already-extracted data, not a replacement for reading the source clause before acting — say so plainly when something high-stakes (disqualification risk, EMD, a hard deadline) rests on a single clause.`;
+6. This is a convenience layer over already-extracted data, not a replacement for reading the source clause before acting — say so plainly when something high-stakes (disqualification risk, EMD, a hard deadline) rests on a single clause.
+7. Some documents could NOT be read (marked SCANNED under DOCUMENTS IN THIS TENDER — image-only pages with no text layer). You know nothing about their contents. If a question concerns one of them, say plainly that it is a scanned document whose text could not be read, so it must be checked by hand — never say it "does not contain" or "does not require" something, and never infer what it says. Likewise, a clause missing from the data means only that it was not found in the READABLE documents; when scanned documents exist, say so rather than stating the tender lacks it.`;
 
   const ov = tender.overview || {};
   const overviewLines = Object.entries(ov)
@@ -569,6 +637,9 @@ RULES
     : "";
 
   const user = `TENDER: ${ov.tenderTitle || tender.title}
+
+DOCUMENTS IN THIS TENDER
+${documentStatusLines(tender)}
 
 OVERVIEW FACTS
 ${overviewLines || "(none extracted)"}

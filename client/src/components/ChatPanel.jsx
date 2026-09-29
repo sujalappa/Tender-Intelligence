@@ -106,23 +106,14 @@ const STARTERS = [
   "What are the key deadlines for this tender?",
 ];
 
-// Models offered for chat. Deliberately a short curated list rather than
-// OpenRouter's full catalogue: the full list needs an admin-only endpoint,
-// runs to hundreds of entries, and most of them either lack JSON-schema
-// support or have too small a context window to hold this tender's clauses.
-// Every entry below was checked against the live OpenRouter model list for
-// JSON-schema support and a 1M-token context. Prices are per million tokens
-// (input/output) at time of writing — verify on openrouter.ai before relying
-// on them. "" = use whatever model this tender was analysed with.
-const CHAT_MODELS = [
-  { id: "", label: "Default (same model as the analysis)" },
-  { id: "deepseek/deepseek-v4.1-flash", label: "DeepSeek V4.1 Flash — newest ($0.15/$0.60)" },
-  { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash — balanced ($0.09/$0.18)" },
-  { id: "deepseek/deepseek-v4-flash-0731", label: "DeepSeek V4 Flash 0731 — cheapest in ($0.04/$0.64)" },
-  { id: "deepseek/deepseek-v4-pro", label: "DeepSeek V4 Pro — highest quality ($0.96/$1.91)" },
-];
+// Chat is pinned to DeepSeek V4 Flash. The pricier variants (V4.1 Flash,
+// V4 Pro) were tried and dropped; if the tender itself was analysed with one
+// of them, falling back to the tender's own model would silently route chat
+// there too, so the model is set explicitly rather than inherited.
+const CHAT_PROVIDER = "openrouter";
+const CHAT_MODEL = "deepseek/deepseek-v4-flash";
 
-export default function ChatPanel({ tenderId, provider, model, hasExecSummary, onOpenPage, onNoted }) {
+export default function ChatPanel({ tenderId, hasExecSummary, onOpenPage, onNoted }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -130,9 +121,6 @@ export default function ChatPanel({ tenderId, provider, model, hasExecSummary, o
   const [open, setOpen] = useState(false);
   const [addingIdx, setAddingIdx] = useState(-1);
   const [maximized, setMaximized] = useState(false);
-  // "" means fall back to the tender's own model, which is what the server
-  // does when no model is supplied.
-  const [chatModel, setChatModel] = useState("");
   const bottomRef = useRef(null);
 
   // Chat history is stored server-side now, so a reload (or a colleague's
@@ -167,8 +155,8 @@ export default function ChatPanel({ tenderId, provider, model, hasExecSummary, o
       const { reply, category, searchedFullDocument } = await api.chat(tenderId, {
         message: q,
         history,
-        provider: chatModel ? "openrouter" : provider, // every curated model is an OpenRouter id
-        model: chatModel || model,
+        provider: CHAT_PROVIDER,
+        model: CHAT_MODEL,
       });
       setMessages((m) => [...m, { role: "assistant", text: reply, category, question: q, searchedFullDocument }]);
     } catch (e) {
@@ -273,12 +261,6 @@ export default function ChatPanel({ tenderId, provider, model, hasExecSummary, o
             />
             <button type="submit" disabled={loading || !input.trim()}>Send</button>
           </form>
-          <label className="chat-model">
-            <span className="muted">Model</span>
-            <select value={chatModel} onChange={(e) => setChatModel(e.target.value)} disabled={loading}>
-              {CHAT_MODELS.map((m) => <option key={m.id || "default"} value={m.id}>{m.label}</option>)}
-            </select>
-          </label>
         </div>
       )}
     </section>

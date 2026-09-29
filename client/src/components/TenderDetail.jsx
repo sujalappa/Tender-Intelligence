@@ -358,8 +358,6 @@ export default function TenderDetail() {
       {hasData && (
         <ChatPanel
           tenderId={id}
-          provider={tender.provider}
-          model={tender.model}
           hasExecSummary={Boolean(tender.execSummary)}
           onOpenPage={openPage}
           onNoted={({ execSummary }) => {

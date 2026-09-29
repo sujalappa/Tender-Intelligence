@@ -1,4 +1,5 @@
 import path from "node:path";
+import crypto from "node:crypto";
 import { config } from "../config.js";
 import { Tender } from "../models/Tender.js";
 import { Clause } from "../models/Clause.js";
@@ -128,7 +129,29 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
           else if (linked.length === 0) logLink(`found ${candidateCount} link(s), none were fetchable PDFs`);
         }
 
-        const allParsed = [...parsedUploaded, ...parsedLinked];
+        // Drop exact duplicates before merging. The same document uploaded
+        // under two names (seen: two 150-page files with identical text) sent
+        // every one of its pages to the model twice on every call — ~88k
+        // wasted tokens per call on that tender — and all clauses got cited
+        // to the first copy anyway. Compared on extracted text, not bytes, so
+        // a re-saved copy of the same document is still caught. Files with no
+        // text at all (scanned) are never treated as duplicates of each other.
+        const seen = new Map();
+        const skippedFiles = [];
+        const allParsed = [];
+        for (const f of [...parsedUploaded, ...parsedLinked]) {
+          const text = f.pages.map((p) => p.text).join(" ");
+          if (text.trim().length > 0) {
+            const hash = crypto.createHash("sha1").update(text).digest("hex");
+            if (seen.has(hash)) {
+              skippedFiles.push({ name: f.name, duplicateOf: seen.get(hash) });
+              await note(`skipped "${f.name}" — identical content to "${seen.get(hash)}", not sent to the model twice`);
+              continue;
+            }
+            seen.set(hash, f.name);
+          }
+          allParsed.push(f);
+        }
         ({ taggedPages, pageIndex, toGlobal, totalPages } = mergeFiles(allParsed));
 
         const fullText = taggedPages.map((p) => p.text).join("\n");
@@ -145,6 +168,7 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
                 fetchedFrom: f.fetchedFrom,
               })),
               pages: taggedPages.map((p) => ({ file: p.file, page: p.page, text: p.text, links: p.links })),
+              skippedFiles,
               pageCount: totalPages,
               charCount: fullText.length,
               linkLog,
@@ -196,12 +220,27 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
         const learnedQuestions = await buildLearnedQuestions(category);
         if (learnedQuestions.length) await note(`${category}: prompt includes ${learnedQuestions.length} question(s) this team has asked before`);
 
+        // What the other categories of this tender already hold, so this one
+        // doesn't re-extract it. Queried per category rather than once up
+        // front: categories save as they finish, so each later category sees
+        // everything captured before it (and a resumed one sees them all).
+        const otherCategoryItems = await Clause.find(
+          { tenderId, category: { $ne: category } },
+          { category: 1, title: 1, page: 1, sourceFile: 1 }
+        ).lean();
+        const otherForPrompt = otherCategoryItems.map((c) => ({
+          category: c.category,
+          title: c.title,
+          page: toGlobal ? toGlobal(c.sourceFile, c.page) ?? c.page : c.page,
+        }));
+        if (otherForPrompt.length) await note(`${category}: told about ${otherForPrompt.length} item(s) already captured under other categories`);
+
         let found = [];
 
         // Extract pass
         for (const w of windows) {
           const docText = renderPages(w.pages);
-          const { system, user } = extractionPrompt(category, docText, windowInfo(w), learnedQuestions);
+          const { system, user } = extractionPrompt(category, docText, windowInfo(w), learnedQuestions, otherForPrompt);
           await note(`${category} extract: attempt 1 started`);
           await log(`${category}: extract ${w.from}-${w.to} — calling ${provider}/${model}… (started ${stamp()})`);
           const run = await callModel({ provider, model, system, user, category, pass: "extract", schema: EXTRACTION_SCHEMA, note });
@@ -222,7 +261,7 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
           for (const w of windows) {
             const docText = renderPages(w.pages);
             const inWindow = found.filter((c) => w.pages.some((p) => p.file === c.sourceFile && p.page === c.page));
-            const { system, user } = verificationPrompt(category, docText, inWindow, windowInfo(w), toGlobal);
+            const { system, user } = verificationPrompt(category, docText, inWindow, windowInfo(w), toGlobal, otherForPrompt);
             await note(`${category} verify: attempt 1 started`);
             await log(`${category}: verify ${w.from}-${w.to} — calling ${provider}/${model}… (started ${stamp()})`);
             const run = await callModel({ provider, model, system, user, category, pass: "verify", schema: VERIFY_SCHEMA, note });
