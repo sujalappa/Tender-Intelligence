@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 // One page of one source file. `page` is local to that file (as printed);
 // `file` says which SourceFileSchema entry (by name) it came from.
 const PageSchema = new mongoose.Schema(
-  { file: String, page: Number, text: String, links: [String] },
+  // ocr: true when `text` came from OCR of a scanned page, not the PDF's own text layer
+  { file: String, page: Number, text: String, links: [String], ocr: Boolean },
   { _id: false }
 );
 

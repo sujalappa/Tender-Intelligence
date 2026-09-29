@@ -5,6 +5,7 @@ import { Tender } from "../models/Tender.js";
 import { Clause } from "../models/Clause.js";
 import { extractPages, estimateTokens, renderPages, windowPages, mergeFiles, rehydratePages } from "./pdf.js";
 import { fetchLinkedFiles } from "./linkedDocs.js";
+import { ocrScannedPages, isScanned } from "./ocr.js";
 import { AskedQuestion } from "../models/AskedQuestion.js";
 import { completeJson, contextWindowFor, withRetry } from "./llm/index.js";
 import {
@@ -104,7 +105,7 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
       if (canReuseParse) {
         await log("Reusing already-parsed pages and files — skipping re-parse and re-link-fetch");
         ({ taggedPages, pageIndex, toGlobal, totalPages } = rehydratePages(
-          tender.pages.map((p) => ({ file: p.file, page: p.page, text: p.text, links: p.links || [] }))
+          tender.pages.map((p) => ({ file: p.file, page: p.page, text: p.text, links: p.links || [], ocr: p.ocr }))
         ));
       } else {
         const uploaded = tender.files.filter((f) => f.kind === "uploaded");
@@ -127,6 +128,21 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
           parsedLinked = linked;
           if (candidateCount === 0) logLink("no links found in the uploaded PDF(s)");
           else if (linked.length === 0) logLink(`found ${candidateCount} link(s), none were fetchable PDFs`);
+        }
+
+        // ---- OCR scanned pages (no text layer) --------------------------------
+        if (config.ocr.enabled) {
+          const scannedTotal = [...parsedUploaded, ...parsedLinked].reduce((n, f) => n + f.pages.filter(isScanned).length, 0);
+          if (scannedTotal > 0) {
+            await log(`Reading ${scannedTotal} scanned page(s) with OCR…`);
+            const budget = { left: config.ocr.maxPages };
+            for (const f of [...parsedUploaded, ...parsedLinked]) {
+              const r = await ocrScannedPages(f.filePath, f.pages, { budget, onLog: (m) => note(`${f.name}: ${m}`) });
+              if (r.attempted || r.skipped) {
+                await note(`OCR "${f.name}": ${r.recovered} page(s) read, ${r.failed} blank/failed${r.skipped ? `, ${r.skipped} not attempted (OCR_MAX_PAGES=${config.ocr.maxPages} reached)` : ""}`);
+              }
+            }
+          }
         }
 
         // Drop exact duplicates before merging. The same document uploaded
@@ -167,7 +183,7 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
                 sourceUrl: f.sourceUrl,
                 fetchedFrom: f.fetchedFrom,
               })),
-              pages: taggedPages.map((p) => ({ file: p.file, page: p.page, text: p.text, links: p.links })),
+              pages: taggedPages.map((p) => ({ file: p.file, page: p.page, text: p.text, links: p.links, ocr: p.ocr || undefined })),
               skippedFiles,
               pageCount: totalPages,
               charCount: fullText.length,
@@ -340,7 +356,7 @@ export async function refreshOverview(tenderId, { provider, model } = {}) {
     model ||= tender.model || (provider === "gemini" ? config.gemini.model : config.openrouter.model);
 
     const { taggedPages, pageIndex, totalPages } = rehydratePages(
-      tender.pages.map((p) => ({ file: p.file, page: p.page, text: p.text, links: p.links || [] }))
+      tender.pages.map((p) => ({ file: p.file, page: p.page, text: p.text, links: p.links || [], ocr: p.ocr }))
     );
     const toLocal = (g) => pageIndex[g] || { file: taggedPages[0]?.file, page: g };
     const estTokens = estimateTokens(renderPages(taggedPages));

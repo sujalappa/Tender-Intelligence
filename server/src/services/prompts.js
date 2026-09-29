@@ -132,7 +132,7 @@ H. LINKS — some pages carry a "[LINKS ON THIS PAGE]" block listing hyperlinks 
 
 I. DOCUMENT FORMALITY — whenever the tender asks for a document, certificate, declaration or affidavit, record in 'evidenceRequired' exactly HOW it must be furnished: original or copy, self-attested, notarised, apostilled, endorsed by an Embassy / High Commission / Consulate, on non-judicial stamp paper (and its value), signed by whom, and in which annexure format. If the tender says such a formality is NOT needed, say that too. Bid teams lose bids on these details and check them one by one.
 
-J. UNREADABLE PAGES — a page marked "[NO EXTRACTABLE TEXT – possibly scanned image]" could not be read. Never infer or reconstruct what such a page contains, and never extract an item from it.`;
+J. UNREADABLE PAGES — a page marked "[NO EXTRACTABLE TEXT – possibly scanned image]" could not be read. Never infer or reconstruct what such a page contains, and never extract an item from it. A page whose marker says "[OCR of scanned page]" WAS read, by OCR: extract from it normally, but where an amount, percentage, date or clause number looks garbled or inconsistent with the rest of the tender, quote it as printed and add the flag "needs_clarification" rather than correcting it.`;
 
 /** JSON schema shared by Gemini (responseSchema) and OpenRouter (json_schema). */
 export const EXTRACTION_SCHEMA = {
@@ -499,14 +499,25 @@ function execDigestLine(c) {
  * had ever been read. Needs `tender.pages`, so callers must load them.
  */
 function documentStatusLines(tender) {
-  const textByFile = {};
-  for (const pg of tender.pages || []) textByFile[pg.file] = (textByFile[pg.file] || 0) + (pg.text || "").trim().length;
+  const byFile = {};
+  for (const pg of tender.pages || []) {
+    const s = (byFile[pg.file] ||= { chars: 0, ocr: 0, unreadable: 0 });
+    const len = (pg.text || "").trim().length;
+    s.chars += len;
+    if (pg.ocr) s.ocr++;
+    else if (len < 30) s.unreadable++;
+  }
   const lines = [
-    ...(tender.files || []).map((f) =>
-      (textByFile[f.name] || 0) > 0
-        ? `- ${f.name} (${f.pageCount ?? "?"} pages) — read`
-        : `- ${f.name} (${f.pageCount ?? "?"} pages) — SCANNED: no text could be read, contents UNKNOWN`
-    ),
+    ...(tender.files || []).map((f) => {
+      const s = byFile[f.name] || { chars: 0, ocr: 0, unreadable: 0 };
+      const head = `- ${f.name} (${f.pageCount ?? "?"} pages)`;
+      if (s.chars === 0) return `${head} — SCANNED: no text could be read, contents UNKNOWN`;
+      const extras = [
+        s.ocr ? `${s.ocr} scanned page(s) read by OCR` : "",
+        s.unreadable ? `${s.unreadable} page(s) blank or unreadable` : "",
+      ].filter(Boolean);
+      return `${head} — read${extras.length ? ` (${extras.join("; ")})` : ""}`;
+    }),
     ...(tender.skippedFiles || []).map((f) => `- ${f.name} — not analysed: identical content to ${f.duplicateOf}`),
   ];
   return lines.join(NEWLINE) || "(none listed)";

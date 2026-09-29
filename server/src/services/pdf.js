@@ -109,7 +109,9 @@ export function renderPages(pages) {
     .map((p) => {
       const body = p.text.length > 0 ? p.text : "[NO EXTRACTABLE TEXT – possibly scanned image]";
       const linkBlock = p.links?.length ? `\n[LINKS ON THIS PAGE]\n${p.links.map((l) => `- ${l}`).join("\n")}` : "";
-      const marker = p.file ? `<<< PAGE ${p.globalPage} (${p.file} p.${p.page}) >>>` : `<<< PAGE ${p.page} >>>`;
+      // OCR text can misread digits — flag it so the model reads those pages with care
+      const ocrTag = p.ocr ? " [OCR of scanned page]" : "";
+      const marker = p.file ? `<<< PAGE ${p.globalPage} (${p.file} p.${p.page})${ocrTag} >>>` : `<<< PAGE ${p.page}${ocrTag} >>>`;
       return `${marker}\n${body}${linkBlock}`;
     })
     .join("\n\n");
