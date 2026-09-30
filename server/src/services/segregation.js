@@ -7,6 +7,7 @@ import { extractDocument, isWordFile, estimateTokens, renderPages, windowPages, 
 import { fetchLinkedFiles } from "./linkedDocs.js";
 import { ocrScannedPages, isScanned } from "./ocr.js";
 import { AskedQuestion } from "../models/AskedQuestion.js";
+import { SummaryKey } from "../models/SummaryKey.js";
 import { completeJson, contextWindowFor, withRetry } from "./llm/index.js";
 import {
   CATEGORY_KEYS,
@@ -387,8 +388,13 @@ export async function refreshOverview(tenderId, { provider, model } = {}) {
  */
 async function buildLearnedQuestions(category, limit = 12) {
   try {
+    // Summary keys first: the team has said these must be on every summary,
+    // so extraction should always capture the clause that answers them.
+    const keys = await SummaryKey.find({ category }).sort({ createdAt: 1 }).lean();
     const rows = await AskedQuestion.find({ category }).sort({ asked: -1, lastAskedAt: -1 }).limit(limit).lean();
-    return rows.map((r) => r.text).filter(Boolean);
+    const seen = new Set();
+    return [...keys.map((k) => k.question), ...rows.map((r) => r.text)]
+      .filter((q) => q && !seen.has(q.toLowerCase()) && seen.add(q.toLowerCase()));
   } catch (e) {
     console.warn(`[segregate] could not load learned questions: ${e.message}`);
     return [];

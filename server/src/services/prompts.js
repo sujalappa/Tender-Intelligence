@@ -598,7 +598,7 @@ export const CHAT_SCHEMA = {
   required: ["reply", "topic", "category", "answeredFromClauses"],
 };
 
-function clauseDigestLine(c) {
+export function clauseDigestLine(c) {
   const bits = [];
   if (c.criterion) bits.push(`criterion: ${c.criterion}${c.comparator && c.comparator !== "n/a" ? " " + c.comparator : ""} ${c.threshold || ""}${c.unit && c.unit !== "n/a" ? " " + c.unit : ""}`.replace(/\s+/g, " ").trim());
   if (c.mandatoryStatus) bits.push(`mandatory: ${c.mandatoryStatus}`);
@@ -668,5 +668,83 @@ NEW QUESTION FROM THE BID MANAGER
 ${message}
 
 Return JSON now.`;
+  return { system, user };
+}
+
+// ---------------------------------------------------------------------------
+// Summary keys — the facts the team wants on EVERY executive summary (see
+// models/SummaryKey.js). Answered as a set, one short fact per key, so the
+// same rows can be compared tender against tender. "Not mentioned" is a real
+// answer here: the row stays, so the absence is visible.
+// ---------------------------------------------------------------------------
+
+export const SUMMARY_KEYS_SCHEMA = {
+  type: "object",
+  properties: {
+    answers: {
+      type: "array",
+      description: "Exactly one entry per key listed, in the same order, each echoing its id.",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "The key's id exactly as given, e.g. 'k3'" },
+          label: { type: "string", description: "The key's label as given. If the given label is empty, write one: 2-6 words naming the fact, e.g. 'Site visit mandatory', 'Mobilisation period'" },
+          found: { type: "boolean", description: "true only if the tender text below actually states the answer" },
+          value: { type: "string", description: "When found: the fact itself, <= 25 words — the figure, date, yes/no + condition, as printed. When not found: empty string." },
+          file: { type: "string", description: "Source filename from the tag/marker the answer came from. Empty when not found." },
+          page: { type: "integer", description: "Source page from that tag/marker. 0 when not found." },
+          category: { type: "string", enum: ["commercial", "financial", "technical", "legal", "technical_qualification"], description: "Which tender category this fact belongs to" },
+        },
+        required: ["id", "label", "found", "value", "file", "page", "category"],
+      },
+    },
+  },
+  required: ["answers"],
+};
+
+/**
+ * @param keys    [{ id: "k1", label, question }]
+ * @param docText when given, the full tender text is supplied instead of the
+ *                clause digest (used for the keys the clauses didn't answer)
+ */
+export function summaryKeysPrompt(tender, clauses, keys, docText) {
+  const system = `You are the bid-desk head filling in the standard rows of an executive summary. The same rows appear on every tender's summary so the managing director can compare tenders side by side, which only works if every value is the tender's own fact, stated the same way each time. You output only JSON matching the schema.
+
+RULES
+1. Answer each key from the tender data below — never from general knowledge, typical practice or other tenders.
+2. The value is the fact itself, not a sentence about it: "Yes — mandatory, certificate from Engineer-in-Charge" / "45 days from LOA" / "Rs. 10,66,000; DD/BG/online; MSE exempt". Figures, units and dates exactly as printed.
+3. If the tender does not state it, set found=false and leave value empty. Do NOT write "not specified" into value, and never guess. A reasonable inference is still a guess.
+4. If the tender states the answer is negative (e.g. "site visit is not mandatory"), that IS found: value "No — …" with its citation.
+5. Cite the file and page of the tag (or page marker) the answer came from, exactly. If two places are needed, cite the more authoritative one.
+6. If the tender gives conflicting values across documents, say so in the value: "CONFLICT — GCC 5%, SCC 3%".
+7. Documents marked SCANNED under DOCUMENTS IN THIS TENDER could not be read. A key not found in the readable documents is found=false; never assume a scanned document is silent on it.`;
+
+  const ov = tender.overview || {};
+  const overviewLines = Object.entries(ov)
+    .filter(([k, v]) => v && k !== "citations" && k !== "notes")
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(NEWLINE);
+  const keyLines = keys.map((k) => `- ${k.id} | label: ${k.label || "(write one)"} | ${k.question}`).join(NEWLINE);
+
+  const user = `TENDER: ${ov.tenderTitle || tender.title}
+
+DOCUMENTS IN THIS TENDER
+${documentStatusLines(tender)}
+
+KEYS TO ANSWER (${keys.length})
+${keyLines}
+
+OVERVIEW FACTS
+${overviewLines || "(none extracted)"}
+
+${docText
+    ? `FULL TENDER TEXT (pages marked <<< PAGE n (file p.m) >>> — cite 'file' as that filename and 'page' as its p.m number)
+=========
+${docText}
+=========`
+    : `EXTRACTED CLAUSES (each starts with its [file p#] tag)
+${(clauses || []).map(clauseDigestLine).join(NEWLINE) || "(none)"}`}
+
+Answer every key now. Return JSON.`;
   return { system, user };
 }

@@ -10,6 +10,8 @@ import { answerChat } from "../services/chat.js";
 import { generateExecutiveSummary } from "../services/execSummary.js";
 import { AskedQuestion } from "../models/AskedQuestion.js";
 import { CATEGORY_DEFS } from "../services/prompts.js";
+import { SummaryKey } from "../models/SummaryKey.js";
+import { answerKeys, fillMissingKeys, toStanding, NOT_MENTIONED } from "../services/summaryKeys.js";
 import { extractPages, extractDocument, isWordFile, SUPPORTED_EXT, fetchLinkedPdf } from "../services/pdf.js";
 import { listOpenrouterModels } from "../services/llm/openrouter.js";
 import { config } from "../config.js";
@@ -484,6 +486,100 @@ router.delete("/:id/executive-summary/:category/:pointIndex", requireSuperAdmin,
     }
     const after = await Tender.findById(id, { execSummary: 1 }).lean();
     res.json({ execSummary: after?.execSummary || null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Ask one new question for the executive summary. Returns the answer for
+ *  THIS tender without saving anything — the executive decides whether it
+ *  is worth adding as a standing key (POST .../keys). */
+router.post("/:id/executive-summary/ask", requireAuth, async (req, res, next) => {
+  try {
+    const question = String(req.body.question || "").trim();
+    if (question.length < 4) return res.status(400).json({ error: "Type a question first" });
+    const [answer] = await answerKeys(req.params.id, [{ question }], { actor: req.user });
+    res.json({ answer });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Add a standing key (shown on every summary from now on) and store this
+ *  tender's already-fetched answer as its row, so it appears immediately.
+ *  Other tenders' summaries get their row via "Fill missing keys" or on
+ *  their next regeneration. */
+router.post("/:id/executive-summary/keys", requireAuth, async (req, res, next) => {
+  try {
+    const label = String(req.body.label || "").trim().slice(0, 80);
+    const question = String(req.body.question || "").trim();
+    if (!label || !question) return res.status(400).json({ error: "A label and a question are required" });
+    const dupe = (await SummaryKey.find({}, { label: 1 }).lean()).find((k) => k.label.toLowerCase() === label.toLowerCase());
+    if (dupe) return res.status(409).json({ error: `A key called "${dupe.label}" already exists` });
+    const key = await SummaryKey.create({
+      label, question,
+      category: CATEGORIES.includes(req.body.category) ? req.body.category : undefined,
+      createdBy: { id: req.user._id, name: req.user.name },
+    });
+    const a = req.body.answer || {};
+    const row = toStanding({
+      keyId: String(key._id), label,
+      value: String(a.value || NOT_MENTIONED), found: Boolean(a.found),
+      file: a.file || "", page: Number(a.page) || 0,
+    });
+    await Tender.updateOne({ _id: req.params.id, execSummary: { $ne: null } }, { $push: { "execSummary.standing": row } });
+    const after = await Tender.findById(req.params.id, { execSummary: 1 }).lean();
+    res.status(201).json({ key, execSummary: after?.execSummary || null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Answer every standing key this tender's summary has no row for yet. */
+router.post("/:id/executive-summary/fill", requireAuth, async (req, res, next) => {
+  try {
+    res.json({ execSummary: await fillMissingKeys(req.params.id, { actor: req.user }) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** The team's standing summary keys — every executive summary carries a
+ *  row for each. Any signed-in user can view, add and remove them. */
+router.get("/meta/summary-keys", requireAuth, async (_req, res, next) => {
+  try {
+    res.json(await SummaryKey.find({}).sort({ createdAt: 1 }).lean());
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post("/meta/summary-keys", requireAuth, async (req, res, next) => {
+  try {
+    const label = String(req.body.label || "").trim().slice(0, 80);
+    const question = String(req.body.question || "").trim() || label;
+    if (!label) return res.status(400).json({ error: "A label is required" });
+    const dupe = (await SummaryKey.find({}, { label: 1 }).lean()).find((k) => k.label.toLowerCase() === label.toLowerCase());
+    if (dupe) return res.status(409).json({ error: `A key called "${dupe.label}" already exists` });
+    const key = await SummaryKey.create({
+      label, question,
+      category: CATEGORIES.includes(req.body.category) ? req.body.category : undefined,
+      createdBy: { id: req.user._id, name: req.user.name },
+    });
+    res.status(201).json(key);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Removing a key takes its row off every summary too — otherwise old
+ *  summaries would keep showing a key nobody can see in the list. */
+router.delete("/meta/summary-keys/:kid", requireAuth, async (req, res, next) => {
+  try {
+    const r = await SummaryKey.deleteOne({ _id: req.params.kid });
+    if (!r.deletedCount) return res.status(404).json({ error: "Key not found" });
+    await Tender.updateMany({ "execSummary.standing.keyId": req.params.kid }, { $pull: { "execSummary.standing": { keyId: req.params.kid } } });
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }

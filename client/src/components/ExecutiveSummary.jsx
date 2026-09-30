@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api.js";
 
 const CATEGORY_LABELS = {
@@ -20,6 +21,26 @@ const isRisk = (v) => /^(risk|conflict)\b/i.test(v || "");
 export default function ExecutiveSummary({ tenderId, summary, clauseCount, pageLabel, cite, openPage, onGenerated, onUpdated, canEdit = false, printMode = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // The team-wide list of standard keys, to spot keys added after this
+  // summary was generated (they have no row here yet).
+  const [keys, setKeys] = useState(null);
+  const [filling, setFilling] = useState(false);
+  useEffect(() => {
+    if (!printMode) api.summaryKeys().then(setKeys).catch(() => setKeys(null));
+  }, [printMode, summary?.standing?.length]);
+
+  const fill = async () => {
+    setFilling(true);
+    setError("");
+    try {
+      const { execSummary } = await api.fillExecKeys(tenderId);
+      onUpdated?.(execSummary);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setFilling(false);
+    }
+  };
 
   const generate = async () => {
     setBusy(true);
@@ -85,6 +106,17 @@ export default function ExecutiveSummary({ tenderId, summary, clauseCount, pageL
 
       {summary.headline && <p className="exec-headline">{summary.headline}</p>}
 
+      <StandardKeys
+        summary={summary}
+        keys={keys}
+        Page={Page}
+        printMode={printMode}
+        filling={filling}
+        onFill={fill}
+      />
+
+      {!printMode && <AskKey tenderId={tenderId} Page={Page} onAdded={(execSummary) => { onUpdated?.(execSummary); api.summaryKeys().then(setKeys).catch(() => {}); }} />}
+
       {summary.atAGlance?.length > 0 && (
         <section className="exec-cat">
           <h4>At a glance</h4>
@@ -136,5 +168,142 @@ export default function ExecutiveSummary({ tenderId, summary, clauseCount, pageL
         </section>
       ))}
     </div>
+  );
+}
+
+/**
+ * The team's standard keys: one row per key on every summary, "Not
+ * mentioned" included, so tenders compare row for row. Rows follow the
+ * order of the team-wide list.
+ */
+function StandardKeys({ summary, keys, Page, printMode, filling, onFill }) {
+  const rows = summary.standing || [];
+  const order = new Map((keys || []).map((k, i) => [String(k._id), i]));
+  const sorted = keys ? [...rows].sort((a, b) => (order.get(a.keyId) ?? 1e9) - (order.get(b.keyId) ?? 1e9)) : rows;
+  const have = new Set(rows.map((r) => r.keyId));
+  const missing = (keys || []).filter((k) => !have.has(String(k._id)));
+  if (!rows.length && !missing.length) return null;
+
+  return (
+    <section className="exec-cat exec-keys">
+      <h4>
+        Standard keys <span className="muted small">({rows.length})</span>
+        {!printMode && <Link className="link small exec-keys-manage" to="/summary-keys">Manage keys</Link>}
+      </h4>
+      {!printMode && missing.length > 0 && (
+        <p className="exec-keys-missing small">
+          {missing.length} key{missing.length > 1 ? "s were" : " was"} added after this summary was generated ({missing.map((k) => k.label).join(", ")}).{" "}
+          <button className="link small" onClick={onFill} disabled={filling}>{filling ? "Filling…" : "Fill them in for this tender"}</button>
+        </p>
+      )}
+      {sorted.length > 0 && (
+        <table className="table exec-table glance">
+          <tbody>
+            {sorted.map((r) => (
+              <tr key={r.keyId || r.label} className={isRisk(r.value) ? "risk" : ""}>
+                <th>{r.label}</th>
+                <td className={r.found ? "" : "muted"}>{r.found ? r.value : "— Not mentioned in this tender"}</td>
+                <td className="exec-page"><Page p={r} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Ask the tender a question and, if the answer is worth having on every
+ * summary, add it as a standard key. Asking alone saves nothing.
+ */
+function AskKey({ tenderId, Page, onAdded }) {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState(null);
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const ask = async (e) => {
+    e.preventDefault();
+    if (!question.trim()) return;
+    setBusy(true);
+    setError("");
+    setAnswer(null);
+    try {
+      const { answer } = await api.askExecKey(tenderId, question.trim());
+      setAnswer(answer);
+      setLabel(answer.label);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const add = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const { execSummary } = await api.addExecKey(tenderId, {
+        label: label.trim(),
+        question: answer.question,
+        category: answer.category,
+        answer,
+      });
+      onAdded?.(execSummary);
+      setAnswer(null);
+      setQuestion("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="exec-ask">
+      <form onSubmit={ask} className="exec-ask-form">
+        <label htmlFor="exec-ask-q" className="small">Need something that isn't here? Ask the tender:</label>
+        <div className="exec-ask-row">
+          <input
+            id="exec-ask-q"
+            type="text"
+            placeholder="e.g. Is a site visit mandatory?"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            disabled={busy}
+          />
+          <button type="submit" disabled={busy || !question.trim()}>{busy && !answer ? "Asking…" : "Ask"}</button>
+        </div>
+      </form>
+
+      {answer && (
+        <div className="exec-ask-result">
+          <div className="exec-ask-answer">
+            <input
+              id="exec-ask-label"
+              className="exec-ask-label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              aria-label="Key name"
+              title="Name of this key on every summary. You can edit it."
+            />
+            <span className={answer.found ? "" : "muted"}>{answer.found ? answer.value : "— Not mentioned in this tender"}</span>
+            <Page p={answer} />
+          </div>
+          <p className="muted small">
+            {answer.found
+              ? "Add it and every executive summary will carry this key from now on."
+              : "This tender doesn't mention it. You can still add it: other tenders will be checked for it, and it will show as \"Not mentioned\" where it's absent."}
+          </p>
+          <div className="exec-ask-actions">
+            <button onClick={add} disabled={busy || !label.trim()}>{busy ? "Adding…" : "Add to every summary"}</button>
+            <button className="link small" onClick={() => setAnswer(null)} disabled={busy}>Discard</button>
+          </div>
+        </div>
+      )}
+      {error && <p className="error small">⚠ {error}</p>}
+    </section>
   );
 }

@@ -60,6 +60,12 @@ export const api = {
   removeClause: (id, clauseId) => send(`/api/tenders/${id}/clauses/${clauseId}`, { method: "DELETE" }),
   removeExecPoint: (id, category, pointIndex) =>
     send(`/api/tenders/${id}/executive-summary/${category}/${pointIndex}`, { method: "DELETE" }),
+  askExecKey: (id, question) => post(`/api/tenders/${id}/executive-summary/ask`, { question }),
+  addExecKey: (id, body) => post(`/api/tenders/${id}/executive-summary/keys`, body),
+  fillExecKeys: (id) => post(`/api/tenders/${id}/executive-summary/fill`),
+  summaryKeys: () => send("/api/tenders/meta/summary-keys"),
+  createSummaryKey: (body) => post("/api/tenders/meta/summary-keys", body),
+  removeSummaryKey: (kid) => send(`/api/tenders/meta/summary-keys/${kid}`, { method: "DELETE" }),
   questions: () => send("/api/tenders/meta/questions"),
   removeQuestion: (qid) => send(`/api/tenders/meta/questions/${qid}`, { method: "DELETE" }),
   chat: (id, body) => post(`/api/tenders/${id}/chat`, body),

@@ -4,6 +4,8 @@ import { config } from "../config.js";
 import { completeJson, withRetry } from "./llm/index.js";
 import { executiveSummaryPrompt, EXEC_SUMMARY_SCHEMA } from "./prompts.js";
 import { recordUsage } from "../models/UsageEvent.js";
+import { SummaryKey } from "../models/SummaryKey.js";
+import { answerKeys, toStanding } from "./summaryKeys.js";
 
 const CATEGORY_ORDER = ["commercial", "financial", "technical", "legal", "technical_qualification"];
 
@@ -30,7 +32,19 @@ export async function generateExecutiveSummary(tenderId, { provider, model, acto
   const { system, user } = executiveSummaryPrompt(tender, clauses);
 
   const t0 = Date.now();
-  const res = await withRetry(() => completeJson({ provider: p, model: m, system, user, schema: EXEC_SUMMARY_SCHEMA, maxTokens: 16000 }));
+  // The team's standing keys are answered alongside, from ALL clauses (plus
+  // the full text if needed) — the brief itself only sees critical clauses,
+  // and a standing key is often not one of those. A failure there must not
+  // cost the brief: the rows are simply missing and "Fill missing keys"
+  // retries them.
+  const keys = await SummaryKey.find({}).sort({ createdAt: 1 }).lean();
+  const [res, standing] = await Promise.all([
+    withRetry(() => completeJson({ provider: p, model: m, system, user, schema: EXEC_SUMMARY_SCHEMA, maxTokens: 16000 })),
+    answerKeys(tenderId, keys, { actor }).catch((e) => {
+      console.warn(`[exec-summary ${tenderId}] summary keys failed: ${e.message}`);
+      return [];
+    }),
+  ]);
   const json = res.json || {};
 
   // Validate citations against real files/pages so a hallucinated page can't
@@ -50,6 +64,7 @@ export async function generateExecutiveSummary(tenderId, { provider, model, acto
     atAGlance: (json.atAGlance || []).map(fix).filter((x) => x.label && x.value),
     sections,
     watchouts: (json.watchouts || []).map((w) => String(w).trim()).filter(Boolean),
+    standing: standing.map(toStanding),
     generatedAt: new Date(),
     provider: p,
     model: m,

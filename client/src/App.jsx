@@ -2,6 +2,7 @@ import { Routes, Route, Link, Navigate } from "react-router-dom";
 import TenderList from "./components/TenderList.jsx";
 import TenderDetail from "./components/TenderDetail.jsx";
 import QuestionBank from "./components/QuestionBank.jsx";
+import SummaryKeys from "./components/SummaryKeys.jsx";
 import Users from "./components/Users.jsx";
 import Activity from "./components/Activity.jsx";
 import Login from "./components/Login.jsx";
@@ -23,6 +24,7 @@ function Shell() {
       <header className="topbar">
         <Link to="/" className="brand">Bhushilp <span>Tender Intelligence</span></Link>
         <nav className="topnav">
+          <Link to="/summary-keys">Summary Keys</Link>
           <Link to="/questions">Common Questions</Link>
           {isAdmin && <Link to="/activity">Team Activity</Link>}
           {isAdmin && <Link to="/users">Users</Link>}
@@ -44,6 +46,17 @@ function Shell() {
                 <section className="card">
                   <h2>Common Questions</h2>
                   <QuestionBank />
+                </section>
+              </div>
+            }
+          />
+          <Route
+            path="/summary-keys"
+            element={
+              <div className="page">
+                <section className="card">
+                  <h2>Executive Summary Keys</h2>
+                  <SummaryKeys />
                 </section>
               </div>
             }

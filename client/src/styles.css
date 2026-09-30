@@ -372,3 +372,20 @@ button.danger:not(.link):disabled { opacity: .4; }
    letting the iframe render the endpoint's JSON error as a "document". */
 .pdf-unavailable { padding: 28px 24px; display: flex; flex-direction: column; gap: 8px; }
 .pdf-unavailable p { margin: 0; }
+
+/* Standard summary keys + "ask the tender" */
+.exec-keys h4 { display: flex; align-items: baseline; gap: 8px; }
+.exec-keys-manage { margin-left: auto; font-weight: 400; }
+.exec-keys-missing { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 8px 10px; margin: 0 0 8px; }
+.exec-ask { border: 1px dashed var(--border); border-radius: 8px; padding: 12px 14px; margin: 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.exec-ask-form { display: flex; flex-direction: column; gap: 6px; }
+.exec-ask-row { display: flex; gap: 8px; }
+.exec-ask-row input { flex: 1; min-width: 0; }
+.exec-ask-result { display: flex; flex-direction: column; gap: 6px; background: #f8fafc; border-radius: 6px; padding: 10px 12px; }
+.exec-ask-answer { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.exec-ask-label { font-weight: 600; width: 16em; max-width: 100%; }
+.exec-ask-result p { margin: 0; }
+.exec-ask-actions { display: flex; align-items: center; gap: 10px; }
+.summary-key-form { display: flex; flex-direction: column; gap: 8px; max-width: 640px; margin-top: 20px; }
+.summary-key-form h3 { margin: 0; }
+.summary-key-form p { margin: 0; }
