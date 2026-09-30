@@ -140,9 +140,32 @@ adminActivityRouter.get("/activity", requireSuperAdmin, async (_req, res, next) 
       User.find({}, { name: 1 }).lean(),
     ]);
     const byId = Object.fromEntries(users.map((u) => [String(u._id), u.name]));
+
+    // Pair each question with its answer: the first assistant turn by the
+    // same person on the same tender at or after the question (both turns
+    // are saved together, so they share a timestamp or sit a moment apart).
+    const oldest = messages.length ? messages[messages.length - 1].createdAt : new Date();
+    const answers = await ChatMessage.find({
+      role: "assistant",
+      tenderId: { $in: [...new Set(messages.map((m) => String(m.tenderId)))] },
+      createdAt: { $gte: oldest },
+    }).sort({ createdAt: 1, _id: 1 }).lean();
+    const answerFor = (q) =>
+      answers.find(
+        (a) => String(a.tenderId) === String(q.tenderId) && String(a.userId) === String(q.userId) &&
+          (a.createdAt > q.createdAt || (+a.createdAt === +q.createdAt && String(a._id) > String(q._id)))
+      );
+
     res.json({
       notes: notes.map((n) => ({ ...n, author: byId[String(n.userId)] || "(removed user)" })),
-      questions: messages.map((m) => ({ ...m, author: byId[String(m.userId)] || "(removed user)" })),
+      questions: messages.map((m) => {
+        const a = answerFor(m);
+        return {
+          ...m,
+          author: byId[String(m.userId)] || "(removed user)",
+          answer: a ? { text: a.text, searchedFullDocument: a.searchedFullDocument, createdAt: a.createdAt } : null,
+        };
+      }),
     });
   } catch (e) {
     next(e);

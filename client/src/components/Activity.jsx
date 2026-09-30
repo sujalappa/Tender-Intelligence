@@ -41,7 +41,7 @@ export default function Activity() {
             <thead>
               <tr>
                 <th>Who</th>
-                <th>{tab === "notes" ? "Note" : "Question"}</th>
+                <th>{tab === "notes" ? "Note" : "Question and answer"}</th>
                 <th>Tender</th>
                 <th>When</th>
               </tr>
@@ -57,7 +57,19 @@ export default function Activity() {
                         <div className="muted">{r.text.slice(0, 160)}{r.text.length > 160 ? "…" : ""}</div>
                       </>
                     ) : (
-                      r.text
+                      <>
+                        <strong>{r.text}</strong>
+                        {r.answer ? (
+                          <details className="activity-answer">
+                            <summary>
+                              Answer{r.answer.searchedFullDocument ? <span className="muted"> (read the full tender)</span> : null}
+                            </summary>
+                            <div className="activity-answer-text">{r.answer.text}</div>
+                          </details>
+                        ) : (
+                          <div className="muted">No answer saved</div>
+                        )}
+                      </>
                     )}
                   </td>
                   <td><Link to={`/tenders/${r.tenderId}`}>open</Link></td>

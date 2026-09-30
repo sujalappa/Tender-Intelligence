@@ -389,3 +389,8 @@ button.danger:not(.link):disabled { opacity: .4; }
 .summary-key-form { display: flex; flex-direction: column; gap: 8px; max-width: 640px; margin-top: 20px; }
 .summary-key-form h3 { margin: 0; }
 .summary-key-form p { margin: 0; }
+
+/* Team Activity: answer under each question */
+.activity-answer { margin-top: 4px; }
+.activity-answer summary { cursor: pointer; color: var(--accent); font-size: 12px; }
+.activity-answer-text { white-space: pre-wrap; margin-top: 6px; padding: 8px 10px; background: #f8fafc; border-left: 3px solid var(--border); border-radius: 4px; max-width: 70ch; }
