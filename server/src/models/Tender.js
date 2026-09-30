@@ -16,6 +16,8 @@ const SourceFileSchema = new mongoose.Schema(
     filePath: String,
     kind: { type: String, enum: ["uploaded", "linked"], default: "uploaded" },
     pageCount: Number,
+    // Word file whose page numbers are ≈A4 chunks, not the pages Word shows
+    approxPages: Boolean,
     sourceUrl: String, // kind === "linked" only
     fetchedFrom: { file: String, page: Number }, // kind === "linked" only: where the link was found
   },

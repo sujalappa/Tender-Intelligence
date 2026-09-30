@@ -10,7 +10,7 @@ import { answerChat } from "../services/chat.js";
 import { generateExecutiveSummary } from "../services/execSummary.js";
 import { AskedQuestion } from "../models/AskedQuestion.js";
 import { CATEGORY_DEFS } from "../services/prompts.js";
-import { extractPages, fetchLinkedPdf } from "../services/pdf.js";
+import { extractPages, extractDocument, isWordFile, SUPPORTED_EXT, fetchLinkedPdf } from "../services/pdf.js";
 import { listOpenrouterModels } from "../services/llm/openrouter.js";
 import { config } from "../config.js";
 import { UsageEvent } from "../models/UsageEvent.js";
@@ -70,7 +70,7 @@ const upload = multer({
     filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^\w.-]/g, "_")}`),
   }),
   limits: { fileSize: 200 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => cb(null, file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf")),
+  fileFilter: (_req, file, cb) => cb(null, SUPPORTED_EXT.test(file.originalname)),
 });
 
 /** Category metadata for the UI */
@@ -100,9 +100,9 @@ router.get("/meta/models", requireSuperAdmin, async (_req, res) => {
  *  services/linkedDocs.js) unless followLinks=false is passed. */
 router.post("/", requireSuperAdmin, upload.array("files", 20), async (req, res, next) => {
   try {
-    if (!req.files?.length) return res.status(400).json({ error: "At least one PDF file required (field name: files)" });
+    if (!req.files?.length) return res.status(400).json({ error: "Upload at least one PDF or Word (.docx / .doc) file (field name: files)" });
     const tender = await Tender.create({
-      title: req.body.title || req.files[0].originalname.replace(/\.pdf$/i, ""),
+      title: req.body.title || req.files[0].originalname.replace(SUPPORTED_EXT, ""),
       files: req.files.map((f) => ({ name: f.originalname, filePath: f.path, kind: "uploaded" })),
       status: "uploaded",
     });
@@ -280,11 +280,15 @@ router.post("/:id/files/:index/restore", requireSuperAdmin, upload.single("file"
     const target = tender.files?.[index];
     if (!target) return res.status(404).json({ error: "No such file on this tender" });
 
-    const { pageCount } = await extractPages(savedPath);
+    if (isWordFile(target.name) !== isWordFile(savedPath)) {
+      await fs.unlink(savedPath).catch(() => {});
+      return res.status(400).json({ error: `"${target.name}" was a ${isWordFile(target.name) ? "Word" : "PDF"} file — upload that same file.` });
+    }
+    const { pageCount } = await extractDocument(savedPath);
     if (target.pageCount && pageCount !== target.pageCount) {
       await fs.unlink(savedPath).catch(() => {});
       return res.status(400).json({
-        error: `This PDF has ${pageCount} page(s), but "${target.name}" was originally ${target.pageCount} — doesn't look like the same file. Not restored.`,
+        error: `This file has ${pageCount} page(s), but "${target.name}" was originally ${target.pageCount} — doesn't look like the same file. Not restored.`,
       });
     }
 
@@ -366,8 +370,10 @@ router.get("/:id/file/:index", requireAuth, async (req, res, next) => {
     const resolved = path.resolve(f.filePath);
     if (!resolved.startsWith(UPLOAD_DIR + path.sep)) return res.status(403).json({ error: "Forbidden" });
     await fs.access(resolved).catch(() => { throw new Error("missing-on-disk"); });
-    res.type("application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(f.name || "document.pdf")}"`);
+    // Browsers can't display Word inline, so those download instead.
+    const word = isWordFile(f.name);
+    res.type(word ? (/\.doc$/i.test(f.name) ? "application/msword" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document") : "application/pdf");
+    res.setHeader("Content-Disposition", `${word ? "attachment" : "inline"}; filename="${encodeURIComponent(f.name || "document.pdf")}"`);
     res.sendFile(resolved);
   } catch (e) {
     if (e.message === "missing-on-disk") return res.status(410).json({ error: "The source PDF is no longer on disk" });

@@ -57,7 +57,7 @@ export default function TenderList() {
         <section className="card">
           <h2>Upload tender</h2>
           <form onSubmit={submit} className="upload-form">
-            <input type="file" accept="application/pdf" multiple onChange={(e) => setFiles([...e.target.files])} required />
+            <input type="file" accept=".pdf,.docx,.doc,application/pdf" multiple onChange={(e) => setFiles([...e.target.files])} required />
             {files.length > 1 && <p className="muted small">{files.length} files selected: {files.map((f) => f.name).join(", ")}</p>}
             <input type="text" placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
             <ModelPicker value={llm} onChange={setLlm} />

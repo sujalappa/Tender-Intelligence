@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { config } from "../config.js";
 import { Tender } from "../models/Tender.js";
 import { Clause } from "../models/Clause.js";
-import { extractPages, estimateTokens, renderPages, windowPages, mergeFiles, rehydratePages } from "./pdf.js";
+import { extractDocument, isWordFile, estimateTokens, renderPages, windowPages, mergeFiles, rehydratePages } from "./pdf.js";
 import { fetchLinkedFiles } from "./linkedDocs.js";
 import { ocrScannedPages, isScanned } from "./ocr.js";
 import { AskedQuestion } from "../models/AskedQuestion.js";
@@ -111,8 +111,8 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
         const uploaded = tender.files.filter((f) => f.kind === "uploaded");
         const parsedUploaded = [];
         for (const f of uploaded) {
-          const { pageCount, pages } = await extractPages(f.filePath);
-          parsedUploaded.push({ name: f.name, filePath: f.filePath, kind: "uploaded", pageCount, pages });
+          const { pageCount, pages, approxPages } = await extractDocument(f.filePath);
+          parsedUploaded.push({ name: f.name, filePath: f.filePath, kind: "uploaded", pageCount, pages, approxPages });
         }
 
         // ---- Follow links found inside the uploaded PDFs -------------------
@@ -132,11 +132,12 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
 
         // ---- OCR scanned pages (no text layer) --------------------------------
         if (config.ocr.enabled) {
-          const scannedTotal = [...parsedUploaded, ...parsedLinked].reduce((n, f) => n + f.pages.filter(isScanned).length, 0);
+          const scannedTotal = [...parsedUploaded, ...parsedLinked].filter((f) => !isWordFile(f.filePath)).reduce((n, f) => n + f.pages.filter(isScanned).length, 0);
           if (scannedTotal > 0) {
             await log(`Reading ${scannedTotal} scanned page(s) with OCR…`);
             const budget = { left: config.ocr.maxPages };
             for (const f of [...parsedUploaded, ...parsedLinked]) {
+              if (isWordFile(f.filePath)) continue; // OCR reads PDFs; a Word file's text is already exact
               const r = await ocrScannedPages(f.filePath, f.pages, { budget, onLog: (m) => note(`${f.name}: ${m}`) });
               if (r.attempted || r.skipped) {
                 await note(`OCR "${f.name}": ${r.recovered} page(s) read, ${r.failed} blank/failed${r.skipped ? `, ${r.skipped} not attempted (OCR_MAX_PAGES=${config.ocr.maxPages} reached)` : ""}`);
@@ -180,6 +181,7 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
                 filePath: f.filePath,
                 kind: f.kind,
                 pageCount: f.pageCount,
+                approxPages: f.approxPages || undefined,
                 sourceUrl: f.sourceUrl,
                 fetchedFrom: f.fetchedFrom,
               })),

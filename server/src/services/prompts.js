@@ -510,7 +510,7 @@ function documentStatusLines(tender) {
   const lines = [
     ...(tender.files || []).map((f) => {
       const s = byFile[f.name] || { chars: 0, ocr: 0, unreadable: 0 };
-      const head = `- ${f.name} (${f.pageCount ?? "?"} pages)`;
+      const head = `- ${f.name} (${f.pageCount ?? "?"} pages${f.approxPages ? "; Word file — page numbers are approximate sections, not printed pages" : ""})`;
       if (s.chars === 0) return `${head} — SCANNED: no text could be read, contents UNKNOWN`;
       const extras = [
         s.ocr ? `${s.ocr} scanned page(s) read by OCR` : "",

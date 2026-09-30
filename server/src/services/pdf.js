@@ -1,6 +1,19 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { extractWordPages } from "./word.js";
+
+/** Tender documents we can read: PDF, and Word (.docx, legacy .doc). */
+export const SUPPORTED_EXT = /\.(pdf|docx?)$/i;
+export const isWordFile = (nameOrPath) => /\.docx?$/i.test(nameOrPath || "");
+
+/**
+ * Pages of any supported document, in extractPages()'s shape. Word files also
+ * return `approxPages` when their page numbers are chunks, not Word's own.
+ */
+export async function extractDocument(filePath) {
+  return isWordFile(filePath) ? extractWordPages(filePath) : extractPages(filePath);
+}
 
 /**
  * Extract text page by page from ONE PDF file. Also pulls hyperlink

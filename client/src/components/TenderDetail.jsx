@@ -523,21 +523,33 @@ export default function TenderDetail() {
         </div>
       )}
 
-      {pageView && (
+      {pageView && (() => {
+        // Browsers can't render Word inline, so a Word file only has the text
+        // view here, plus a download of the original.
+        const wordFile = /\.docx?$/i.test(pageView.file || "");
+        const approx = tender.files?.[pageView.fileIndex]?.approxPages;
+        const showPdf = pdfView && !wordFile;
+        return (
         <div className="modal no-print" onClick={() => setPageView(null)}>
           <div className="modal-body pdf-modal" onClick={(e) => e.stopPropagation()}>
             <header>
-              <strong>📄 {pageView.file} — Page {pageView.page}</strong>
+              <strong>📄 {pageView.file} — {approx ? `Section ${pageView.page} (approximate page)` : `Page ${pageView.page}`}</strong>
               <span className="modal-tools">
-                <button className={pdfView ? "link" : "link active"} onClick={() => setPdfView(false)}>Text</button>
-                <button className={pdfView ? "link active" : "link"} onClick={() => setPdfView(true)} disabled={pageView.fileIndex < 0}>Original PDF</button>
-                {pageView.fileIndex >= 0 && (
-                  <a className="link" href={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}?t=${pageView.nonce}#page=${pageView.page}`} target="_blank" rel="noreferrer">Open in new tab</a>
+                <button className={showPdf ? "link" : "link active"} onClick={() => setPdfView(false)}>Text</button>
+                {!wordFile && (
+                  <button className={showPdf ? "link active" : "link"} onClick={() => setPdfView(true)} disabled={pageView.fileIndex < 0}>Original PDF</button>
+                )}
+                {pageView.fileIndex >= 0 && fileStatus?.[pageView.fileIndex]?.available !== false && (
+                  wordFile ? (
+                    <a className="link" href={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}?t=${pageView.nonce}`}>Download Word file</a>
+                  ) : (
+                    <a className="link" href={`${API_BASE}/api/tenders/${id}/file/${pageView.fileIndex}?t=${pageView.nonce}#page=${pageView.page}`} target="_blank" rel="noreferrer">Open in new tab</a>
+                  )
                 )}
                 <button className="link" onClick={() => setPageView(null)}>Close</button>
               </span>
             </header>
-            {pdfView && pageView.fileIndex >= 0 && fileStatus?.[pageView.fileIndex]?.available === false ? (
+            {showPdf && pageView.fileIndex >= 0 && fileStatus?.[pageView.fileIndex]?.available === false ? (
               // Without this branch the iframe embeds the endpoint's JSON
               // error body and renders it as the "document" — the viewer
               // showed a raw {"error":"The source PDF is no longer on disk"}
@@ -562,7 +574,7 @@ export default function TenderDetail() {
                   <p className="small muted">Ask an administrator to restore the original file.</p>
                 )}
               </div>
-            ) : pdfView && pageView.fileIndex >= 0 ? (
+            ) : showPdf && pageView.fileIndex >= 0 ? (
               // The browser's own PDF viewer, jumped to the cited page —
               // the executive verifies the clause against the real document,
               // not our extracted text.
@@ -574,7 +586,7 @@ export default function TenderDetail() {
             ) : (
               <pre>{pageView.text || "(no extractable text on this page)"}</pre>
             )}
-            {pageView.links?.length > 0 && !pdfView && (
+            {pageView.links?.length > 0 && !showPdf && (
               <div className="page-links">
                 <strong className="small">Links on this page</strong>
                 <ul>
@@ -586,7 +598,8 @@ export default function TenderDetail() {
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -639,7 +652,7 @@ function RestoreFileControl({ tenderId, index, kind, onRestored }) {
 
   return (
     <span className="restore-file">
-      <input ref={inputRef} type="file" accept="application/pdf" hidden onChange={pick} />
+      <input ref={inputRef} type="file" accept=".pdf,.docx,.doc,application/pdf" hidden onChange={pick} />
       {kind === "linked" && (
         <button className="link small" disabled={busy} onClick={refetch} title="Attempt to retrieve this document automatically from its original source">
           {busy ? "Retrieving…" : "Retrieve automatically"}
