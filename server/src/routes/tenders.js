@@ -11,6 +11,7 @@ import { generateExecutiveSummary } from "../services/execSummary.js";
 import { AskedQuestion } from "../models/AskedQuestion.js";
 import { CATEGORY_DEFS } from "../services/prompts.js";
 import { SummaryKey } from "../models/SummaryKey.js";
+import { interpretClause } from "../services/interpret.js";
 import { answerKeys, fillMissingKeys, toStanding, NOT_MENTIONED } from "../services/summaryKeys.js";
 import { extractPages, extractDocument, isWordFile, SUPPORTED_EXT, fetchLinkedPdf } from "../services/pdf.js";
 import { listOpenrouterModels } from "../services/llm/openrouter.js";
@@ -443,6 +444,19 @@ router.patch("/:id/clauses/:clauseId", requireSuperAdmin, async (req, res, next)
     if (!clause) return res.status(404).json({ error: "Clause not found" });
     res.json({ clause });
   } catch (e) {
+    next(e);
+  }
+});
+
+/** Plausible readings of one clause, weighed by Jev. Cached on the clause;
+ *  body { refresh: true } regenerates. Open to every signed-in user — it's
+ *  read-only with respect to the extraction itself. */
+router.post("/:id/clauses/:clauseId/interpret", requireAuth, async (req, res, next) => {
+  try {
+    const interpretation = await interpretClause(req.params.id, req.params.clauseId, { actor: req.user, refresh: Boolean(req.body?.refresh) });
+    res.json({ interpretation });
+  } catch (e) {
+    if (e.message === "Clause not found") return res.status(404).json({ error: e.message });
     next(e);
   }
 });

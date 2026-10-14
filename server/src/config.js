@@ -68,6 +68,14 @@ export const config = {
       })
       .filter((s) => s.name && s.email && s.password),
   },
+  // TypeSafe Jev, used to weigh the readings of a clause the "Interpret"
+  // button produces (see services/interpret.js). Called through OpenRouter's
+  // System One endpoint on the OpenRouter key by default; set
+  // TYPESAFE_API_KEY to call TypeSafe directly instead.
+  typesafe: {
+    apiKey: process.env.TYPESAFE_API_KEY,
+    model: process.env.TYPESAFE_MODEL || (process.env.TYPESAFE_API_KEY ? "jev-latest" : "typesafe/jev-1.13"),
+  },
   // OCR for scanned pages (pages with no text layer) via OpenRouter's
   // mistral-ocr parser, ~$2 per 1000 pages. Text pages are never sent.
   // OCR_MAX_PAGES caps the spend per tender run (300 pages ≈ $0.60).

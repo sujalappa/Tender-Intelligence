@@ -50,6 +50,10 @@ const ClauseSchema = new mongoose.Schema(
     model: String,
     addedBy: String, // manual clauses only: who added it (free text for now)
     addedFrom: String, // manual clauses only: the chat question that produced it
+    // "Interpret" result (services/interpret.js): the plausible readings,
+    // Jev's likelihood for each, and a drafted pre-bid query. Cached so a
+    // second look doesn't pay again; regenerated on request.
+    interpretation: mongoose.Schema.Types.Mixed,
   },
   { timestamps: true }
 );

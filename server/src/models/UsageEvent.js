@@ -15,7 +15,7 @@ const UsageEventSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
     kind: {
       type: String,
-      enum: ["chat", "chat-fulldoc", "exec-summary", "note-exec-point", "overview-refresh", "summary-keys"],
+      enum: ["chat", "chat-fulldoc", "exec-summary", "note-exec-point", "overview-refresh", "summary-keys", "interpret", "interpret-jev"],
       required: true,
       index: true,
     },

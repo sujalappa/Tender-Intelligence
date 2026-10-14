@@ -5,6 +5,7 @@ import { StatusPill } from "./TenderList.jsx";
 import ModelPicker from "./ModelPicker.jsx";
 import ChatPanel from "./ChatPanel.jsx";
 import ExecutiveSummary from "./ExecutiveSummary.jsx";
+import Interpretation from "./Interpretation.jsx";
 import NotesPanel, { NoteForm } from "./NotesPanel.jsx";
 import { useAuth } from "../auth.jsx";
 
@@ -699,6 +700,9 @@ function OverviewGrid({ ov, ovCite, parseCitation, cite, openPage, printMode = f
  *  the print-only full report, so the two never drift out of sync. */
 function ClauseCard({ c, cite, pageLabel, onOpenPage, onImportance, onRemove, onNoted, tenderId, canEdit = false, printMode = false }) {
   const [noting, setNoting] = useState(false);
+  const [interpreting, setInterpreting] = useState(false);
+  // Kept locally so a re-opened panel shows the last result without refetching the clause list.
+  const [interp, setInterp] = useState(c.interpretation || null);
   return (
     <article className={`clause imp-${c.importance}`}>
       <header>
@@ -717,6 +721,11 @@ function ClauseCard({ c, cite, pageLabel, onOpenPage, onImportance, onRemove, on
         {(c.flags || []).map((f) => <span key={f} className="badge flag">{f}</span>)}
         {!printMode && (
           <span className="clause-tools">
+            {!interpreting && (
+              <button className="link small" title="See the possible readings of this clause and how likely each is" onClick={() => setInterpreting(true)}>
+                Interpret{interp ? " ✓" : ""}
+              </button>
+            )}
             {!noting && (
               <button className="link small" title="Save this clause to your notes" onClick={() => setNoting(true)}>+ Save to my notes</button>
             )}
@@ -755,6 +764,15 @@ function ClauseCard({ c, cite, pageLabel, onOpenPage, onImportance, onRemove, on
         />
       )}
       <p className="brief">{c.requirementDescription || c.summary}</p>
+      {interpreting && !printMode && (
+        <Interpretation
+          tenderId={tenderId}
+          clause={c}
+          initial={interp}
+          onClose={() => setInterpreting(false)}
+          onResult={setInterp}
+        />
+      )}
       {c.clauseStatus === "CONFLICT" && c.conflictNote && <p className="small conflict-note">⚡ {c.conflictNote}</p>}
       <footer className="small muted">
         {c.deadline && <span>⏱ {c.deadline}</span>}

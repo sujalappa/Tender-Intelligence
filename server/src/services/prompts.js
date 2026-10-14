@@ -748,3 +748,57 @@ ${(clauses || []).map(clauseDigestLine).join(NEWLINE) || "(none)"}`}
 Answer every key now. Return JSON.`;
   return { system, user };
 }
+
+// ---------------------------------------------------------------------------
+// Interpret — the plausible readings of ONE clause, for when an executive
+// can't tell what it actually requires. The readings are then weighed by a
+// separate decision model (Jev); this prompt only has to spell them out.
+// ---------------------------------------------------------------------------
+
+export const INTERPRET_SCHEMA = {
+  type: "object",
+  properties: {
+    readings: {
+      type: "array",
+      description: "1-4 genuinely different readings. One reading only when the clause has one clear meaning.",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "<= 8 words naming the reading, e.g. 'PBG on full contract value'" },
+          meaning: { type: "string", description: "What the clause requires under this reading, in plain words, 1-3 sentences: what the bidder must do, pay, submit or avoid" },
+          basis: { type: "string", description: "The exact words of the clause (or a referenced clause in the context) that support this reading, quoted" },
+          ifWrong: { type: "string", description: "What happens to the bidder if they act on this reading and the buyer meant another one: rejection, forfeiture, penalty, extra cost. One sentence." },
+        },
+        required: ["title", "meaning", "basis", "ifWrong"],
+      },
+    },
+    whyAmbiguous: { type: "string", description: "Which words or gaps create the different readings, 1-2 sentences. Empty if the clause has one clear meaning." },
+    preBidQuery: { type: "string", description: "A clarification question to send the buyer that would settle which reading applies, citing the clause reference. Empty if the clause has one clear meaning." },
+  },
+  required: ["readings", "whyAmbiguous", "preBidQuery"],
+};
+
+export function interpretPrompt(clause, contextText) {
+  const system = `You are a senior contracts and tender analyst for an Indian EPC / supply contractor. A tender executive cannot tell what a clause actually requires. Your job is to lay out every reasonable way the clause can be read, so the bid team sees the ambiguity before it costs them. You output only JSON matching the schema.
+
+RULES
+1. A reading counts only if it changes what the bidder must actually do, pay, submit or risk. Two wordings of the same obligation are one reading.
+2. Every reading must be supportable from the words of the clause or of a clause it refers to in the context. Quote those words in 'basis'. Never invent a reading the text cannot support, and never bring in general practice or other tenders.
+3. If the clause has one clear meaning, return exactly one reading, leave whyAmbiguous and preBidQuery empty. Do not manufacture ambiguity.
+4. Typical sources of real ambiguity: an undefined base ("5% of value" — contract value, or bid value incl. GST?), unclear scope of "and/or", a deadline without a start event, a cross-reference to a clause that says something different, "similar work" left undefined, an exemption whose applicability to JVs or MSEs is unstated.
+5. The pre-bid query must be specific enough that the buyer's one-line answer settles it, and cite the clause reference and page.`;
+  const user = `CLAUSE ${clause.clauseRef || "(no reference)"} — ${clause.title}  [${clause.sourceFile} p${clause.page}]
+
+EXACT TEXT
+${clause.verbatim || "(no verbatim text captured)"}
+
+HOW IT WAS SUMMARISED DURING EXTRACTION
+${clause.requirementDescription || clause.summary || "(none)"}
+
+SURROUNDING PAGES (for cross-references and definitions only)
+=========
+${contextText || "(not available)"}
+=========
+List the readings now. Return JSON.`;
+  return { system, user };
+}

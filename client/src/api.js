@@ -57,6 +57,7 @@ export const api = {
   refreshOverview: (id, body = {}) => post(`/api/tenders/${id}/overview`, body),
   execSummary: (id, body = {}) => post(`/api/tenders/${id}/executive-summary`, body),
   updateClause: (id, clauseId, body) => send(`/api/tenders/${id}/clauses/${clauseId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  interpretClause: (id, clauseId, body = {}) => post(`/api/tenders/${id}/clauses/${clauseId}/interpret`, body),
   removeClause: (id, clauseId) => send(`/api/tenders/${id}/clauses/${clauseId}`, { method: "DELETE" }),
   removeExecPoint: (id, category, pointIndex) =>
     send(`/api/tenders/${id}/executive-summary/${category}/${pointIndex}`, { method: "DELETE" }),
