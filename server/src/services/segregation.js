@@ -476,9 +476,8 @@ async function runOverview(tenderId, { provider, model, firstWindow, toLocal, pr
   }
 }
 
-// Extract thinks hardest (finding every clause is the job); the audit pass
-// checks a list it's handed, so medium is enough there. The overview pass
-// keeps the provider defaults.
+// Extract and audit both think at medium; the overview pass keeps the
+// provider defaults. Chat answers at low (services/chat.js).
 const PASS_SETTINGS = {
   extract: () => config.openrouter.extract,
   verify: () => config.openrouter.verify,

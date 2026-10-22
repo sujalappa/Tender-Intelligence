@@ -38,7 +38,7 @@ export const config = {
     // deployments and still governs everything else.
     extract: {
       maxTokens: Number(process.env.OPENROUTER_EXTRACT_MAX_TOKENS || 80000),
-      reasoningEffort: process.env.OPENROUTER_EXTRACT_REASONING || "high",
+      reasoningEffort: process.env.OPENROUTER_EXTRACT_REASONING || "medium",
     },
     verify: {
       maxTokens: Number(process.env.OPENROUTER_VERIFY_MAX_TOKENS || 80000),
