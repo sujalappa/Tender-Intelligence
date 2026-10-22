@@ -476,12 +476,21 @@ async function runOverview(tenderId, { provider, model, firstWindow, toLocal, pr
   }
 }
 
+// Extract thinks hardest (finding every clause is the job); the audit pass
+// checks a list it's handed, so medium is enough there. The overview pass
+// keeps the provider defaults.
+const PASS_SETTINGS = {
+  extract: () => config.openrouter.extract,
+  verify: () => config.openrouter.verify,
+};
+
 async function callModel({ provider, model, system, user, category, pass, schema, note }) {
   const t0 = Date.now();
+  const settings = PASS_SETTINGS[pass]?.() || {};
   try {
-    const res = await withRetry(() => completeJson({ provider, model, system, user, schema }), {
+    const res = await withRetry(() => completeJson({ provider, model, system, user, schema, ...settings }), {
       onAttemptFailed: (e, attempt, willRetry) =>
-        note?.(`${category} ${pass}: attempt ${attempt} failed after ${Math.round((Date.now() - t0) / 1000)}s — ${String(e.message).split("\n")[0].slice(0, 140)}${willRetry ? ` → retrying (attempt ${attempt + 1}, full prompt re-sent)` : ""}`),
+        note?.(`${category} ${pass}: attempt ${attempt} failed after ${Math.round((Date.now() - t0) / 1000)}s — ${String(e.message).split("\n")[0].slice(0, 320)}${willRetry ? ` → retrying (attempt ${attempt + 1}, full prompt re-sent)` : ""}`),
     });
     const json = res.json || {};
     const clausesFound = Array.isArray(json.items) ? json.items.length : Array.isArray(json.missing) ? json.missing.length + (json.incomplete?.length || 0) : 0;
@@ -491,6 +500,8 @@ async function callModel({ provider, model, system, user, category, pass, schema
         provider, model, category, pass,
         inputTokens: res.usage.inputTokens,
         outputTokens: res.usage.outputTokens,
+        reasoningTokens: res.usage.reasoningTokens || undefined,
+        reasoningEffort: settings.reasoningEffort,
         durationMs: Date.now() - t0,
         clausesFound,
       },

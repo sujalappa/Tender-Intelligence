@@ -33,6 +33,8 @@ const RunSchema = new mongoose.Schema(
     window: String, // e.g. "p1-p120"
     inputTokens: Number,
     outputTokens: Number,
+    reasoningTokens: Number, // part of outputTokens spent thinking (OpenRouter only)
+    reasoningEffort: String,
     durationMs: Number,
     clausesFound: Number,
     error: String,

@@ -65,14 +65,26 @@ export async function openrouterJson({ model, system, user, schema, maxTokens, r
     { signal: AbortSignal.timeout(config.llmTimeoutMs) }
   );
   const raw = res.choices?.[0]?.message?.content ?? "";
-  return {
-    json: parseJson(raw),
-    raw,
-    usage: {
-      inputTokens: res.usage?.prompt_tokens ?? 0,
-      outputTokens: res.usage?.completion_tokens ?? 0,
-    },
+  const usage = {
+    inputTokens: res.usage?.prompt_tokens ?? 0,
+    outputTokens: res.usage?.completion_tokens ?? 0,
+    reasoningTokens: res.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
   };
+  // The model stopped because it ran out of output budget, not because it
+  // finished. Say that plainly — the JSON error it would otherwise produce
+  // ("Unexpected end of JSON input") hides the real cause.
+  if (res.choices?.[0]?.finish_reason === "length") {
+    const cap = maxTokens || config.openrouter.maxTokens;
+    const err = new Error(
+      `Output limit reached — the model used all ${usage.outputTokens.toLocaleString()} of its ${cap.toLocaleString()} output tokens ` +
+      `(${usage.reasoningTokens.toLocaleString()} on thinking, reasoning "${reasoningEffort}") before finishing its reply. ` +
+      `Raise the cap (OPENROUTER_EXTRACT_MAX_TOKENS / OPENROUTER_VERIFY_MAX_TOKENS) or lower the reasoning effort.`
+    );
+    err.outputLimit = true;
+    err.usage = usage;
+    throw err;
+  }
+  return { json: parseJson(raw), raw, usage };
 }
 
 /** List models available on OpenRouter (for the UI dropdown). */

@@ -30,6 +30,20 @@ export const config = {
     // (chat) should ask for "low", not this default meant for the deep
     // extraction/verify passes.
     reasoningEffort: process.env.OPENROUTER_REASONING_EFFORT || "medium",
+    // Per-pass settings for segregation. Thinking is billed as output and
+    // shares max_tokens with the JSON reply, so a 40k cap with thinking on
+    // ran out before the clause list was finished — even on a 14-page
+    // tender — and every retry hit the same wall. These are separate env
+    // vars on purpose: OPENROUTER_MAX_TOKENS is set to 40000 in existing
+    // deployments and still governs everything else.
+    extract: {
+      maxTokens: Number(process.env.OPENROUTER_EXTRACT_MAX_TOKENS || 80000),
+      reasoningEffort: process.env.OPENROUTER_EXTRACT_REASONING || "high",
+    },
+    verify: {
+      maxTokens: Number(process.env.OPENROUTER_VERIFY_MAX_TOKENS || 80000),
+      reasoningEffort: process.env.OPENROUTER_VERIFY_REASONING || "medium",
+    },
   },
   auth: {
     // Changing this invalidates every existing session, which is the intended
