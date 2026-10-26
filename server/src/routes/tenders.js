@@ -112,7 +112,6 @@ router.post("/", requireSuperAdmin, upload.array("files", 20), async (req, res, 
     const opts = {
       provider: req.body.provider || undefined,
       model: req.body.model || undefined,
-      verify: req.body.verify === undefined ? undefined : req.body.verify !== "false",
       followLinks: req.body.followLinks === undefined ? undefined : req.body.followLinks !== "false",
     };
     // Fire and forget; client polls GET /:id
@@ -141,8 +140,8 @@ router.post("/:id/segregate", requireSuperAdmin, async (req, res, next) => {
     if (isJobActive(tender._id)) {
       return res.status(409).json({ error: "Already running" });
     }
-    const { provider, model, verify, followLinks, categories, resume } = req.body || {};
-    segregateTender(tender._id, { provider, model, verify, followLinks, categories, resume }).catch(() => {});
+    const { provider, model, followLinks, categories, resume } = req.body || {};
+    segregateTender(tender._id, { provider, model, followLinks, categories, resume }).catch(() => {});
     res.status(202).json({ id: tender._id });
   } catch (e) {
     next(e);

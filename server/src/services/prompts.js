@@ -1,6 +1,5 @@
 /**
- * Category definitions drive both the extraction prompt and the verification
- * prompt. Each clause has ONE home category (see CATEGORY_OWNERSHIP) —
+ * Category definitions drive the extraction prompt. Each clause has ONE home category (see CATEGORY_OWNERSHIP) —
  * listing the same clause under two or three categories measured at 36–66%
  * of all output on real tenders and read to executives as noise.
  *
@@ -258,87 +257,6 @@ ADDITIONAL RULES
 5. Mark importance 'critical' for anything that can lead to rejection of the bid, forfeiture, or heavy penalty.${learned}
 6. Return an empty items array only if the document truly contains nothing for this category.
 ${alreadyCaptured}${windowNote}
-
-DOCUMENT
-=========
-${docText}
-=========
-Return JSON now.`;
-  return { system: BASE_SYSTEM, user };
-}
-
-/**
- * Pass-2 schema: distinct from extraction because it must separate two kinds
- * of findings — a clause pass 1 missed entirely ("missing"), vs a clause pass
- * 1 found but only partially captured ("incomplete", e.g. it got the
- * threshold but dropped the recency window). Conflating these silently lets
- * partial captures slip through uncaught.
- */
-export const VERIFY_SCHEMA = {
-  type: "object",
-  properties: {
-    missing: { ...EXTRACTION_SCHEMA.properties.items, description: "Clauses pass 1 did not list at all." },
-    incomplete: {
-      type: "array",
-      description: "Clauses pass 1 DID list, but incompletely (missing threshold/timePeriod/exception/evidence/etc.) — provide the corrected, complete item.",
-      items: {
-        type: "object",
-        properties: {
-          targetClauseRef: { type: "string", description: "clauseRef of the pass-1 item being corrected, exactly as listed below" },
-          targetPage: { type: "integer", description: "the PAGE number shown in brackets for that item below (same numbering as the document's <<< PAGE n >>> markers) — NOT the p.m label" },
-          whatWasMissing: { type: "string", description: "Short note: which fields/content pass 1 dropped" },
-          corrected: {
-            ...EXTRACTION_SCHEMA.properties.items.items,
-            description: "The FULL corrected item — not a diff. Repeat every field, fixed and complete.",
-          },
-        },
-        required: ["targetClauseRef", "targetPage", "whatWasMissing", "corrected"],
-      },
-    },
-    notes: { type: "string", description: "Anything else worth flagging: page ranges that looked suspicious, sections likely OCR-broken, etc. Empty if none." },
-  },
-  required: ["missing", "incomplete", "notes"],
-};
-
-export function verificationPrompt(category, docText, found, windowInfo, toGlobal, otherCategoryItems = []) {
-  const def = CATEGORY_DEFS[category];
-  // The document text below uses global PAGE markers; `found` items carry
-  // local (file, page) citations, so translate back to the global number
-  // the model actually sees — otherwise its 'targetPage' answers would be
-  // in a numbering scheme that doesn't match the marker it's reading.
-  const list = found
-    .map((c) => {
-      const g = toGlobal ? toGlobal(c.sourceFile, c.page) : c.page;
-      return `- [PAGE ${g}${c.sourceFile ? ` — ${c.sourceFile} p.${c.page}` : ""}] ${c.clauseRef || "(no ref)"} — ${c.title}\n  requirementDescription: ${(c.requirementDescription || c.summary || "").slice(0, 220)}`;
-    })
-    .join("\n");
-  const windowNote = windowInfo
-    ? `\nNOTE: You are seeing pages ${windowInfo.from}-${windowInfo.to} of a ${windowInfo.total}-page document. Only report findings from these pages.`
-    : "";
-  const user = `TASK: A first pass already extracted the "${def.label}" clauses listed below from this tender. Your job is a completeness AUDIT — the first pass is NOT automatically correct or complete.
-
-CATEGORY DEFINITION (illustrative examples — not an exhaustive checklist; see EXTRACTION STANDARD rule G)
-${def.description}
-
-${CATEGORY_OWNERSHIP}
-
-${EXTRACTION_STANDARD}
-
-ALREADY EXTRACTED BY PASS 1 (${found.length} items)
-${list || "(nothing)"}
-
-AUDIT TASK
-1. Re-read the entire supplied text page by page, sweeping it the same way as the standard above.
-2. For every relevant clause, check whether pass 1 captured it, and whether it captured it COMPLETELY (per the DEPTH STANDARD — figures, basis, timePeriod, exceptions, evidence, consequence).
-3. Put clauses pass 1 missed ENTIRELY into 'missing' (same shape as a normal extraction item).
-4. Put clauses pass 1 listed but only PARTIALLY captured into 'incomplete' — reference the exact clauseRef/page from the list above as 'targetClauseRef'/'targetPage', explain in 'whatWasMissing', and give the FULL corrected item in 'corrected' (repeat every field complete and fixed, not just the delta).
-5. Do NOT duplicate an item pass 1 already captured completely and correctly.
-5a. 'missing' is only for clauses whose home, per CATEGORY OWNERSHIP, is "${def.label}". A clause that belongs to another category is not missing from this one — leave it out.${otherCategoryItems.length ? `
-5b. These are already captured under other categories and must not be reported as missing here:
-${otherCategoryItems.map((c) => `   - [${c.category}] p${c.page}: ${c.title}`).join(NEWLINE)}` : ""}
-6. Apply the CONFLICT rule (part E of the standard) even here: if you find the same term with a different number than what's listed above, that's a 'missing' item with clauseStatus='CONFLICT'.
-7. If nothing was missed and nothing was incomplete, return {"missing": [], "incomplete": [], "notes": "..."}.
-${windowNote}
 
 DOCUMENT
 =========

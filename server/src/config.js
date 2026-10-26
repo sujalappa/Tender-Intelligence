@@ -40,10 +40,6 @@ export const config = {
       maxTokens: Number(process.env.OPENROUTER_EXTRACT_MAX_TOKENS || 80000),
       reasoningEffort: process.env.OPENROUTER_EXTRACT_REASONING || "medium",
     },
-    verify: {
-      maxTokens: Number(process.env.OPENROUTER_VERIFY_MAX_TOKENS || 80000),
-      reasoningEffort: process.env.OPENROUTER_VERIFY_REASONING || "medium",
-    },
   },
   auth: {
     // Changing this invalidates every existing session, which is the intended
@@ -100,7 +96,6 @@ export const config = {
     model: process.env.OCR_MODEL || "deepseek/deepseek-v4-flash",
   },
   maxInputTokens: Number(process.env.MAX_INPUT_TOKENS || 800000),
-  verifyPass: bool(process.env.VERIFY_PASS, true),
   followLinks: bool(process.env.FOLLOW_LINKS, true),
   maxLinkedDocs: Number(process.env.MAX_LINKED_DOCS || 8),
   maxLinkedMb: Number(process.env.MAX_LINKED_MB || 60),

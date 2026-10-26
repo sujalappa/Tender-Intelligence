@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 
 /**
- * Provider + model selector. value = { provider, model, verify }
+ * Provider + model selector. value = { provider, model }
  */
 export default function ModelPicker({ value, onChange }) {
   const [meta, setMeta] = useState(null);
@@ -51,10 +51,6 @@ export default function ModelPicker({ value, onChange }) {
             ))}
           </datalist>
         )}
-      </label>
-      <label className="inline">
-        <input type="checkbox" checked={value.verify} onChange={(e) => onChange({ ...value, verify: e.target.checked })} />
-        Run a secondary review pass to catch anything missed (roughly doubles processing time and cost)
       </label>
       {providerMeta.error && <span className="error small">{providerMeta.error}</span>}
     </div>

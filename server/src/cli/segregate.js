@@ -1,6 +1,6 @@
 /**
  * CLI: segregate one or more PDFs without the web UI.
- *   npm run segregate -- a.pdf [b.pdf ...] [--provider gemini|openrouter] [--model id] [--no-verify] [--no-links] [--categories legal,commercial]
+ *   npm run segregate -- a.pdf [b.pdf ...] [--provider gemini|openrouter] [--model id] [--no-links] [--categories legal,commercial]
  * Any hyperlinks found inside the uploaded PDF(s) that point to other PDFs
  * are auto-fetched and included too, unless --no-links is passed.
  * Prints a summary and writes <first-pdf>.segregation.json next to it.
@@ -13,7 +13,7 @@ import { Clause } from "../models/Clause.js";
 import { segregateTender } from "../services/segregation.js";
 
 const args = process.argv.slice(2);
-const BOOLEAN_FLAGS = new Set(["--no-verify", "--no-links"]);
+const BOOLEAN_FLAGS = new Set(["--no-links"]);
 const files = [];
 for (let i = 0; i < args.length; i++) {
   if (BOOLEAN_FLAGS.has(args[i])) continue;
@@ -21,7 +21,7 @@ for (let i = 0; i < args.length; i++) {
   files.push(args[i]);
 }
 if (!files.length) {
-  console.error("usage: npm run segregate -- <file.pdf> [more.pdf ...] [--provider gemini|openrouter] [--model id] [--no-verify] [--no-links] [--categories a,b]");
+  console.error("usage: npm run segregate -- <file.pdf> [more.pdf ...] [--provider gemini|openrouter] [--model id] [--no-links] [--categories a,b]");
   process.exit(1);
 }
 const opt = (name) => {
@@ -39,7 +39,6 @@ console.log("tender id:", tender._id.toString());
 const summary = await segregateTender(tender._id, {
   provider: opt("provider"),
   model: opt("model"),
-  verify: !args.includes("--no-verify"),
   followLinks: !args.includes("--no-links"),
   categories: opt("categories")?.split(","),
 });

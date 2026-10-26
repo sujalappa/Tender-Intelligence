@@ -78,7 +78,7 @@ export async function openrouterJson({ model, system, user, schema, maxTokens, r
     const err = new Error(
       `Output limit reached — the model used all ${usage.outputTokens.toLocaleString()} of its ${cap.toLocaleString()} output tokens ` +
       `(${usage.reasoningTokens.toLocaleString()} on thinking, reasoning "${reasoningEffort}") before finishing its reply. ` +
-      `Raise the cap (OPENROUTER_EXTRACT_MAX_TOKENS / OPENROUTER_VERIFY_MAX_TOKENS) or lower the reasoning effort.`
+      `Raise OPENROUTER_EXTRACT_MAX_TOKENS or lower OPENROUTER_EXTRACT_REASONING.`
     );
     err.outputLimit = true;
     err.usage = usage;

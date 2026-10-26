@@ -12,10 +12,8 @@ import { completeJson, contextWindowFor, withRetry } from "./llm/index.js";
 import {
   CATEGORY_KEYS,
   EXTRACTION_SCHEMA,
-  VERIFY_SCHEMA,
   OVERVIEW_SCHEMA,
   extractionPrompt,
-  verificationPrompt,
   overviewPrompt,
 } from "./prompts.js";
 
@@ -41,18 +39,18 @@ export function isJobActive(tenderId) {
 /**
  * Full segregation job for one tender:
  *   parse all uploaded PDFs -> auto-fetch linked PDFs found inside them ->
- *   merge into one page corpus -> overview pass -> for each category:
- *   extract (per window) -> verify (per window, missing + incomplete-
- *   correction) -> save
+ *   merge into one page corpus -> for each category: extract (per window)
+ *   -> save -> overview pass. One pass per category: the second "audit"
+ *   pass was removed on 2026-10-26 (it doubled time and cost per tender).
  *
  * `resume: true` skips re-parsing (reuses already-stored pages/files) and
- * skips any category that already has a fully successful extract (+ verify,
- * if enabled) run recorded — so recovering an abandoned job doesn't re-spend
+ * skips any category that already has a fully successful extract run
+ * recorded — so recovering an abandoned job doesn't re-spend
  * the tokens/time already paid for. `resume: false` (default) always does a
  * full fresh run, which is what you want after deliberately changing model/
  * provider/categories.
  */
-export async function segregateTender(tenderId, { provider, model, verify = config.verifyPass, followLinks = config.followLinks, categories, resume = false } = {}) {
+export async function segregateTender(tenderId, { provider, model, followLinks = config.followLinks, categories, resume = false } = {}) {
   const key = String(tenderId);
   if (activeJobs.has(key)) throw new Error("Segregation is already running for this tender");
   activeJobs.set(key, { startedAt: Date.now() });
@@ -224,7 +222,7 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
       const summary = {};
       const stamp = () => new Date().toLocaleTimeString("en-IN", { hour12: false });
       for (const category of categories) {
-        const alreadyDone = resume && !forced && passOk(category, "extract") && (!verify || passOk(category, "verify"));
+        const alreadyDone = resume && !forced && passOk(category, "extract");
         if (alreadyDone) {
           const existing = await Clause.find({ tenderId, category }).lean();
           summary[category] = summarise(existing);
@@ -272,27 +270,6 @@ export async function segregateTender(tenderId, { provider, model, verify = conf
         // No de-duplication: everything the model returned is kept as-is.
         // (With multiple windows this means a clause in the overlap zone can
         // appear twice — the user prefers seeing it twice to losing it.)
-
-        // Verify pass — audits for BOTH wholly-missed clauses and clauses pass 1
-        // captured only partially (a real recall gap a plain "what's missing?"
-        // prompt does not catch).
-        if (verify) {
-          for (const w of windows) {
-            const docText = renderPages(w.pages);
-            const inWindow = found.filter((c) => w.pages.some((p) => p.file === c.sourceFile && p.page === c.page));
-            const { system, user } = verificationPrompt(category, docText, inWindow, windowInfo(w), toGlobal, otherForPrompt);
-            await note(`${category} verify: attempt 1 started`);
-            await log(`${category}: verify ${w.from}-${w.to} — calling ${provider}/${model}… (started ${stamp()})`);
-            const run = await callModel({ provider, model, system, user, category, pass: "verify", schema: VERIFY_SCHEMA, note });
-            await Tender.updateOne({ _id: tenderId }, { $push: { runs: { ...run.record, window: `p${w.from}-p${w.to}` } } });
-            if (run.record.error) await note(`${category} verify: gave up — ${run.record.error.slice(0, 160)}`);
-
-            const missing = normalise(run.json.missing, category, "verify", model, toLocal);
-            const corrected = applyCorrections(found, run.json.incomplete, category, model, toLocal);
-            found = [...found, ...missing];
-            await log(`${category}: verify ${w.from}-${w.to} → +${missing.length} missed, ${corrected} corrected`);
-          }
-        }
 
         found.sort((a, b) => a.page - b.page || (a.clauseRef || "").localeCompare(b.clauseRef || ""));
         if (found.length) await Clause.insertMany(found.map((c) => ({ ...c, tenderId })));
@@ -476,11 +453,10 @@ async function runOverview(tenderId, { provider, model, firstWindow, toLocal, pr
   }
 }
 
-// Extract and audit both think at medium; the overview pass keeps the
-// provider defaults. Chat answers at low (services/chat.js).
+// Extract thinks at medium with a raised output cap; the overview pass keeps
+// the provider defaults. Chat answers at low (services/chat.js).
 const PASS_SETTINGS = {
   extract: () => config.openrouter.extract,
-  verify: () => config.openrouter.verify,
 };
 
 async function callModel({ provider, model, system, user, category, pass, schema, note }) {
@@ -561,57 +537,7 @@ function normaliseOne(i, category, source, model, toLocal) {
   };
 }
 
-/**
- * Apply pass-2 "incomplete" corrections in place onto the in-memory `found`
- * array (found is not yet in Mongo at this point, so this is a plain merge,
- * not a DB update). Falls back to inserting as a fresh verify-sourced item
- * when the target clause can't be matched — better a possible duplicate than
- * a silently dropped correction.
- */
-function applyCorrections(found, incompleteList, category, model, toLocal) {
-  let corrected = 0;
-  for (const corr of incompleteList || []) {
-    if (!corr?.corrected) continue;
-    const targetLoc = toLocal(int(corr.targetPage));
-    const targetRef = norm(corr.targetClauseRef);
-    let match = found.find((c) => targetRef && norm(c.clauseRef) === targetRef && c.sourceFile === targetLoc?.file && Math.abs(c.page - targetLoc.page) <= 1);
-    if (!match) {
-      const targetTitle = str(corr.corrected.title);
-      match = found.find((c) => c.sourceFile === targetLoc?.file && Math.abs(c.page - targetLoc.page) <= 1 && similar(c.title, targetTitle, 8));
-    }
-    const normalised = normaliseOne(corr.corrected, category, "extract", model, toLocal);
-    if (match) {
-      Object.assign(match, normalised, { page: match.page, pageEnd: match.pageEnd, sourceFile: match.sourceFile, source: match.source, correctedByVerify: true });
-      corrected++;
-    } else {
-      found.push({ ...normalised, source: "verify", correctedByVerify: false });
-    }
-  }
-  return corrected;
-}
-
-/** Title similarity, used only to match a verify-pass correction to the
- *  extract-pass item it refers to. */
-function similar(a, b, minLen = 8) {
-  if (!a || !b) return false;
-  const na = a.toLowerCase().replace(/[^a-z0-9 ]/g, "");
-  const nb = b.toLowerCase().replace(/[^a-z0-9 ]/g, "");
-  if (na.length < minLen || nb.length < minLen) return false;
-  if (na === nb) return true;
-  const short = na.length < nb.length ? na : nb;
-  const long = na.length < nb.length ? nb : na;
-  if (short.length > 40 && long.includes(short.slice(0, Math.min(short.length, 160)))) return true;
-  // token-set overlap
-  const ta = new Set(na.split(" ").filter((w) => w.length > 3));
-  const tb = new Set(nb.split(" ").filter((w) => w.length > 3));
-  if (ta.size < 8 || tb.size < 8) return false;
-  let inter = 0;
-  for (const w of ta) if (tb.has(w)) inter++;
-  return inter / Math.min(ta.size, tb.size) > 0.85;
-}
-
 const str = (v) => (v == null ? "" : String(v).trim());
-const norm = (v) => str(v).toLowerCase().replace(/\s+/g, "");
 const int = (v) => {
   const n = parseInt(v, 10);
   return Number.isFinite(n) ? n : 0;

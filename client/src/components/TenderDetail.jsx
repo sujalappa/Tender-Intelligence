@@ -207,8 +207,7 @@ export default function TenderDetail() {
   // base it on whether there's data worth trying to preserve instead.
   const hasHistory = (tender.runs?.length || 0) > 0;
   // A category counts as done if it has an error-free extract run — mirrors
-  // the server's resume check (verify pass isn't required here since the
-  // UI lets you switch verify off).
+  // the server's resume check.
   const doneCategories = new Set((tender.runs || []).filter((r) => r.pass === "extract" && !r.error).map((r) => r.category));
   // Show the results area as soon as anything has been saved — finished
   // categories are viewable while the rest are still running.
@@ -275,7 +274,7 @@ export default function TenderDetail() {
           {isAdmin && (
             <button
               title={running ? "If a job is genuinely still active, the server will refuse this and say so" : ""}
-              onClick={() => { setRerunError(""); setRerun(rerun ? null : { provider: tender.provider, model: tender.model, verify: true, resume: hasHistory }); }}
+              onClick={() => { setRerunError(""); setRerun(rerun ? null : { provider: tender.provider, model: tender.model, resume: hasHistory }); }}
             >
               {hasHistory ? "Resume / restart…" : "Re-run…"}
             </button>

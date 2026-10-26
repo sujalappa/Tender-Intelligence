@@ -10,7 +10,7 @@ export default function TenderList() {
   const [files, setFiles] = useState([]);
   const [title, setTitle] = useState("");
   const [followLinks, setFollowLinks] = useState(true);
-  const [llm, setLlm] = useState({ provider: "", model: "", verify: true });
+  const [llm, setLlm] = useState({ provider: "", model: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   // The tender currently in the delete-confirmation modal, or null. Deletion
@@ -37,7 +37,6 @@ export default function TenderList() {
       if (title) form.append("title", title);
       if (llm.provider) form.append("provider", llm.provider);
       if (llm.model) form.append("model", llm.model);
-      form.append("verify", String(llm.verify));
       form.append("followLinks", String(followLinks));
       await api.upload(form);
       setFiles([]);
