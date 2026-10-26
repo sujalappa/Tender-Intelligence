@@ -9,6 +9,8 @@ const CONTEXT = {
   "deepseek/deepseek-v4-flash": 1_000_000,
   // Covers dated releases too, e.g. deepseek/deepseek-v4.1-flash-1017.
   "deepseek/deepseek-v4.1-flash": 1_000_000,
+  "z-ai/glm-5.3-flash": 1_000_000,
+  "minimax/minimax-m3.1-flash": 1_000_000,
 };
 
 export function contextWindowFor(model) {
