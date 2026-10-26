@@ -1,0 +1,18 @@
+# HTTPS in front of the Node API. __HOST__ is replaced by setup-server.sh with
+# <ip-with-dashes>.sslip.io; Caddy fetches a Let's Encrypt certificate for it
+# on first request. Swap in a real domain here later if you get one.
+__HOST__ {
+	encode gzip
+	# Tender uploads go up to 200 MB (multer limit in routes/tenders.js).
+	request_body {
+		max_size 210MB
+	}
+	# Chat over the full tender, Interpret and summary generation can take
+	# minutes; don't cut them off.
+	reverse_proxy localhost:4000 {
+		transport http {
+			read_timeout 30m
+			write_timeout 30m
+		}
+	}
+}
