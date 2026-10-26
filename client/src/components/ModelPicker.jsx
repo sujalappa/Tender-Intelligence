@@ -5,9 +5,9 @@ import { api } from "../api.js";
 // All three read ~1M tokens, return schema-checked JSON and cost a few cents
 // per tender; add a model here only after trying it on a real tender.
 export const OPENROUTER_MODELS = [
-  { id: "deepseek/deepseek-v4.1-flash-1017", label: "DeepSeek V4.1 Flash (recommended)" },
-  { id: "z-ai/glm-5.3-flash", label: "GLM 5.3 Flash" },
-  { id: "minimax/minimax-m3.1-flash", label: "MiniMax M3.1 Flash" },
+  { id: "deepseek/deepseek-v4.1-flash-1017", label: "DeepSeek V4.1 Flash 1017 — deepseek/deepseek-v4.1-flash-1017 (recommended)" },
+  { id: "z-ai/glm-5.3-flash", label: "GLM 5.3 Flash — z-ai/glm-5.3-flash" },
+  { id: "minimax/minimax-m3.1-flash", label: "MiniMax M3.1 Flash — minimax/minimax-m3.1-flash" },
 ];
 
 /**
