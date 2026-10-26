@@ -13,7 +13,7 @@ export const config = {
   },
   openrouter: {
     apiKey: process.env.OPENROUTER_API_KEY,
-    model: process.env.OPENROUTER_MODEL || "deepseek/deepseek-v4-flash",
+    model: process.env.OPENROUTER_MODEL || "deepseek/deepseek-v4.1-flash-1017",
     siteUrl: process.env.OPENROUTER_SITE_URL || "http://localhost:5173",
     appName: process.env.OPENROUTER_APP_NAME || "Tender Intelligence",
     // Real output for a category extract/verify pass has topped out around

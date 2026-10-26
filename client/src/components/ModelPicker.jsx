@@ -40,7 +40,7 @@ export default function ModelPicker({ value, onChange }) {
           <input
             list="or-models"
             value={value.model}
-            placeholder="deepseek/deepseek-v4-flash"
+            placeholder="deepseek/deepseek-v4.1-flash-1017"
             onChange={(e) => onChange({ ...value, model: e.target.value })}
           />
         )}

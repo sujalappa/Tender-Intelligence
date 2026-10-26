@@ -111,7 +111,7 @@ const STARTERS = [
 // of them, falling back to the tender's own model would silently route chat
 // there too, so the model is set explicitly rather than inherited.
 const CHAT_PROVIDER = "openrouter";
-const CHAT_MODEL = "deepseek/deepseek-v4-flash";
+const CHAT_MODEL = "deepseek/deepseek-v4.1-flash-1017";
 
 export default function ChatPanel({ tenderId, hasExecSummary, onOpenPage, onNoted }) {
   const [messages, setMessages] = useState([]);

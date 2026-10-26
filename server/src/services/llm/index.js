@@ -7,6 +7,8 @@ const CONTEXT = {
   "gemini-3.8-flash": 1_048_576,
   "gemini-3.7-flash": 1_048_576,
   "deepseek/deepseek-v4-flash": 1_000_000,
+  // Covers dated releases too, e.g. deepseek/deepseek-v4.1-flash-1017.
+  "deepseek/deepseek-v4.1-flash": 1_000_000,
 };
 
 export function contextWindowFor(model) {
