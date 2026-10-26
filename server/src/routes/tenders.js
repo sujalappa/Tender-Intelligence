@@ -372,10 +372,12 @@ router.get("/:id/file/:index", requireAuth, async (req, res, next) => {
     const resolved = path.resolve(f.filePath);
     if (!resolved.startsWith(UPLOAD_DIR + path.sep)) return res.status(403).json({ error: "Forbidden" });
     await fs.access(resolved).catch(() => { throw new Error("missing-on-disk"); });
-    // Browsers can't display Word inline, so those download instead.
+    // Browsers can't display Word inline, so those download instead; so
+    // does any file when the caller asks (?download=1, the Download link).
     const word = isWordFile(f.name);
+    const asAttachment = word || req.query.download === "1";
     res.type(word ? (/\.doc$/i.test(f.name) ? "application/msword" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document") : "application/pdf");
-    res.setHeader("Content-Disposition", `${word ? "attachment" : "inline"}; filename="${encodeURIComponent(f.name || "document.pdf")}"`);
+    res.setHeader("Content-Disposition", `${asAttachment ? "attachment" : "inline"}; filename="${encodeURIComponent(f.name || "document.pdf")}"`);
     res.sendFile(resolved);
   } catch (e) {
     if (e.message === "missing-on-disk") return res.status(410).json({ error: "The source PDF is no longer on disk" });

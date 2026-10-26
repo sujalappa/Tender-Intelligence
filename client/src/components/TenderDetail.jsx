@@ -240,6 +240,11 @@ export default function TenderDetail() {
                       ⚠ Unavailable
                     </span>
                   )}
+                  {st?.available && (
+                    <a className="link small file-download" href={`${API_BASE}/api/tenders/${id}/file/${i}?download=1`} title={`Download the original ${f.name}`}>
+                      Download
+                    </a>
+                  )}
                   {missing && isAdmin && <RestoreFileControl tenderId={id} index={i} kind={f.kind} onRestored={loadFileStatus} />}
                 </li>
               );

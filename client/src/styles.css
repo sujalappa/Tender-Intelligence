@@ -412,3 +412,5 @@ button.danger:not(.link):disabled { opacity: .4; }
 .interp-bar span { display: block; height: 100%; background: var(--accent); }
 .interp-risk { color: var(--high); }
 .interp-query { background: #fff; border: 1px dashed var(--border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+
+.file-download { margin-left: 8px; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
